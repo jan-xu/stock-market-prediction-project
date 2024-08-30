@@ -25,3 +25,5 @@ def create_run_folder(run_name):
         subfolder_path = run_folder / subfolder
         subfolder_path.mkdir()
 
+    return run_folder
+
