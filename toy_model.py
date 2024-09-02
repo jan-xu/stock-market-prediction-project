@@ -2,6 +2,7 @@ from tqdm import tqdm
 from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
+import wandb
 
 import torch
 import torch.nn as nn
@@ -9,7 +10,12 @@ import torch.optim as optim
 from sklearn.preprocessing import MinMaxScaler
 from torch.utils.data import DataLoader, TensorDataset
 
+import plotly.graph_objects as go
+
 from toy import SyntheticStockData
+from config import create_run_folder, wandb_config, STOCK_MAPPING
+
+from arguments import parse_args
 
 np.random.seed(0)
 
@@ -23,7 +29,16 @@ def train_test_split(data, test_size=0.05):
 
 if __name__ == "__main__":
 
-    syn_data_obj = SyntheticStockData()
+    args = parse_args()
+    run_name = args.name
+
+    # Set wandb configuration
+    if args.wandb:
+        wandb_config(args)
+        FIGURE_TABLE = wandb.Table(columns=["generated_data", "generated_data_train_test", "generated_rel_diff_train_test", "generated_volume_train_test"])
+        FIGURE_LIST = []
+
+    syn_data_obj = SyntheticStockData() # TODO: create database with data, both synthetic and real-life
     syn_data_obj()
     df = syn_data_obj.get_data_pandas()
 

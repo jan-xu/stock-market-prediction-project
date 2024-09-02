@@ -8,7 +8,9 @@ import pandas as pd
 import plotly.graph_objects as go
 
 import argparse
-from config import create_run_folder
+from config import create_run_folder, wandb_config, STOCK_MAPPING
+
+from arguments import parse_args
 
 import torch
 import torch.nn as nn
@@ -27,76 +29,22 @@ def train_test_split(data, test_size=0.05):
     return train_data, test_data
 
 
-DEFAULT_ARGS = {
-    "architecture": "LSTM",
-    "dataset": "SP500",
-    "epochs": 1000,
-    "batch_size": 64,
-    "wandb": False
-}
-
-
-STOCK_MAPPING = {
-    "SP500": "^GSPC",
-    "NASDAQ": "^IXIC",
-}
-
 if __name__ == "__main__":
 
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Training script for stock market prediction')
+    args = parse_args()
 
-    parser.add_argument('-p', '--project', type=str, default='stock-prediction-playground', help='Wandb project name')
-    parser.add_argument('-n', '--name', type=str, default=None, help='Run name (default: "RUN--<TIMESTAMP>")')
-    parser.add_argument('-a', '--architecture', type=str, default=DEFAULT_ARGS['architecture'], choices=["LSTM", "CNN-LSTM"], help='Model architecture')
-    parser.add_argument('-d', '--dataset', type=str, default=DEFAULT_ARGS['dataset'], help='Dataset name')
-    parser.add_argument('-e', '--epochs', type=int, default=DEFAULT_ARGS['epochs'], help='Number of epochs')
-    parser.add_argument('-b', '--batch_size', type=int, default=DEFAULT_ARGS['batch_size'], help='Batch size')
-    parser.add_argument('-l', '--look-back', type=int, default=64, help='Look-back window size')
-    parser.add_argument('-pw', '--pred-window', type=int, default=1, help='Prediction window size')
-    parser.add_argument('--wandb', action='store_true', help='Log to wandb')
-    parser.add_argument('--ignore-timestamp', action='store_true', help='Ignore timestamp in run name')
-
-    args = parser.parse_args()
-
-    time_stamp_suffix = f"--{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
-    if args.name is not None:
-        run_name = args.name + ("" if args.ignore_timestamp else time_stamp_suffix)
-    else:
-        print(f"Run name not provided. Using default: RUN{time_stamp_suffix}")
-        run_name = f"RUN{time_stamp_suffix}"
-
-    print(f"Run configuration:")
-    print(f"  - Project: {args.project}")
-    print(f"  - Run name: {run_name}")
-    print(f"  - Architecture: {args.architecture}")
-    print(f"  - Dataset: {args.dataset}")
-    print(f"  - Epochs: {args.epochs}")
-    print(f"  - Batch size: {args.batch_size}")
-    print(f"  - Look-back: {args.look_back}")
-    print(f"  - Prediction window: {args.pred_window}")
+    run_name = args.name
 
     # Set wandb configuration
     if args.wandb:
-        print(f"Logging to Wandb: {args.project}/{run_name}")
-        wandb.init(
-            project=args.project,
-            name=run_name,
-            config={
-                "architecture": args.architecture,
-                "dataset": args.dataset,
-                "epochs": args.epochs,
-                "look_back": args.look_back,
-                "pred_window": args.pred_window,
-            }
-        )
+        wandb_config(args)
         FIGURE_TABLE = wandb.Table(columns=["generated_data", "generated_data_train_test", "generated_rel_diff_train_test", "generated_volume_train_test"])
         FIGURE_LIST = []
 
     epochs = args.epochs
     batch_size = args.batch_size
     look_back = args.look_back
-    pred_window = args.pred_window
+    pred_horizon = args.pred_horizon
 
     # Create run folder
     run_folder = create_run_folder(run_name)
@@ -178,7 +126,7 @@ if __name__ == "__main__":
 
     # LSTM model
 
-    def apply_lstm(train_data, test_data, look_back=look_back, pred_window=pred_window, epochs=epochs, lr=0.001):
+    def apply_lstm(train_data, test_data, look_back=look_back, pred_horizon=pred_horizon, epochs=epochs, lr=0.001):
 
         K = len(features) # number of features
         features[0] = "rel_diff"
@@ -200,8 +148,8 @@ if __name__ == "__main__":
 
         for i in range(len(scaled_train_data) - look_back):
             X_train.append(scaled_train_data[i:i+look_back, :])
-            if pred_window > 1:
-                y_train.append(scaled_train_data[i+look_back:i+look_back+pred_window, 0])
+            if pred_horizon > 1:
+                y_train.append(scaled_train_data[i+look_back:i+look_back+pred_horizon, 0])
             else:
                 y_train.append(scaled_train_data[i+look_back, 0])
 

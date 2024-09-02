@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 
 class LSTMModel(nn.Module):
-    def __init__(self, input_size=1, hidden_layer_size=128, output_size=1, pred_window=1):
+    def __init__(self, input_size=1, hidden_layer_size=128, output_size=1, pred_horizon=1):
         super(LSTMModel, self).__init__()
         self.input_size = input_size
         self.hidden_layer_size = hidden_layer_size
-        self.pred_window = pred_window
+        self.pred_horizon = pred_horizon
         self.lstm = nn.LSTM(input_size, hidden_layer_size, batch_first=True)
         self.linear = nn.Linear(hidden_layer_size, output_size)
         self.device = next(self.parameters()).device
@@ -65,16 +65,16 @@ class LSTMModel(nn.Module):
         self._increment_recurrence_count(steps=input_seq.shape[1])
         predictions = self.linear(lstm_out[:, -1]) # Hidden layer of last time step, same as self.hidden_cell[0][0]
 
-        if self.pred_window > 1: # If we want to predict multiple timesteps
+        if self.pred_horizon > 1: # If we want to predict multiple timesteps
             multi_step_input = predictions.unsqueeze(1)
-            predictions = self.multi_step_forward(multi_step_input, self.pred_window)
+            predictions = self.multi_step_forward(multi_step_input, self.pred_horizon)
 
         return predictions
 
 class CNNLSTMModel(LSTMModel):
-    def __init__(self, input_size=1, hidden_layer_size=128, output_size=1, pred_window=1, conv_kernel_size=5, conv_channels=16):
+    def __init__(self, input_size=1, hidden_layer_size=128, output_size=1, pred_horizon=1, conv_kernel_size=5, conv_channels=16):
         # Note: input_size will be times 2 due to conv features
-        super(CNNLSTMModel, self).__init__(input_size=2*input_size, hidden_layer_size=hidden_layer_size, output_size=output_size, pred_window=pred_window)
+        super(CNNLSTMModel, self).__init__(input_size=2*input_size, hidden_layer_size=hidden_layer_size, output_size=output_size, pred_horizon=pred_horizon)
         self.conv_kernel_size = conv_kernel_size
         self.conv_channels = conv_channels
 
@@ -126,7 +126,7 @@ class CNNLSTMModel(LSTMModel):
         conv_feat = self.conv_forward(input_seq)
 
         # Cache input features if we want to predict multiple timesteps
-        if self.pred_window > 1:
+        if self.pred_horizon > 1:
             self.input_seq_cache = input_seq[:, -(self.conv_kernel_size - 1):].clone()
 
         input_seq_aug = torch.cat([input_seq[:, self.conv_kernel_size - 1:], conv_feat], dim=2)
@@ -145,14 +145,14 @@ if __name__ == "__main__":
     output = model(input_seq)
     print(f"{input_seq.shape} -> {output.shape}")
 
-    # Test LSTM with pred_window
-    model = LSTMModel(pred_window=5)
+    # Test LSTM with pred_horizon
+    model = LSTMModel(pred_horizon=5)
     input_seq = torch.randn(4, 50, 1)
     output = model(input_seq)
     print(f"{input_seq.shape} -> {output.shape}")
 
-    # Test CNN-LSTM with pred_window
-    model = CNNLSTMModel(pred_window=5)
+    # Test CNN-LSTM with pred_horizon
+    model = CNNLSTMModel(pred_horizon=5)
     input_seq = torch.randn(4, 50, 1)
     output = model(input_seq)
     print(f"{input_seq.shape} -> {output.shape}")
