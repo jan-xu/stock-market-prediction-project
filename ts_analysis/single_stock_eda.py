@@ -1,28 +1,30 @@
-from warnings import warn
-from typing import Union, List, Tuple
-from datetime import datetime
-import numpy as np
-import pandas as pd
-
-from statsmodels.tsa.seasonal import STL
-from scipy.stats import t
-from scipy.stats import norm
+from typing import List, Tuple, Union
+from warnings import catch_warnings, simplefilter, warn
 
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from matplotlib.ticker import PercentFormatter
-
-import seaborn as sns
-sns.set_style('whitegrid')
-plt.style.use("fivethirtyeight")
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from scipy.stats import norm, t
+from statsmodels.tsa.seasonal import STL
 
 np.random.seed(0)
+
 
 class EDA:
     """
     Class for exploratory data analysis (EDA) of stock prices.
     """
-    def __init__(self, data: pd.DataFrame, label: str, value_col: str = "Close", date_col: Union[str, None] = None, volume_col: Union[str, None] = None) -> None:
+
+    def __init__(
+        self,
+        data: pd.DataFrame,
+        label: str,
+        value_col: str = "Close",
+        date_col: Union[str, None] = None,
+        volume_col: Union[str, None] = None,
+    ) -> None:
         """
         Initializes the EDA object with the given stock price data.
         """
@@ -64,7 +66,9 @@ class EDA:
             warn("Date column not provided. Returning index range instead.")
             return self.get_index_range()
 
-    def add_moving_average(self, window: Union[int, List[int]], column: pd.Series) -> None:
+    def add_moving_average(
+        self, window: Union[int, List[int]], column: pd.Series
+    ) -> None:
         """Add a moving average column of the stock price data.
 
         Args:
@@ -80,139 +84,338 @@ class EDA:
             ma_label = f"{column_label}_{w}-day-MA"
             self.data[ma_label] = column.rolling(window=w).mean()
 
-    def plot_price(self, plot_ma: bool = False, save_fig_name: Union[str, None] = None) -> None:
+    def _save_figures(
+        self, fig, save_fig_name: str, save_fmts: List[str] = ["html", "png"]
+    ) -> None:
+        # Ensure valid save formats
+        valid_formats = ["html", "png"]
+        for fmt in save_fmts:
+            if fmt not in valid_formats:
+                raise ValueError(
+                    f"Invalid save format: {fmt}. Please choose from: {valid_formats}"
+                )
+
+        # Ensure figure is a Plotly object
+
+        # Save figure in the specified formats
+        with catch_warnings():
+            simplefilter("ignore")
+            if "png" in save_fmts:
+                fig.write_image(save_fig_name + ".png")
+            if "html" in save_fmts:
+                fig.write_html(save_fig_name + ".html")
+
+    def plot_price(
+        self,
+        plot_ma: bool = False,
+        save_fig_name: Union[str, None] = None,
+        save_fmts: List[str] = ["html", "png"],
+    ) -> None:
         """
-        Plots the stock price data using Seaborn.
+        Plots the stock price data using Plotly.
 
         Args:
         - plot_ma (bool): If True, plot all moving averages along with the daily returns. Default is False.
         - save_fig_name (str): Name of the file to save the plot (unless None). Default is None.
         """
-        plt.figure(figsize=(12, 6))
-        if self.date_col is not None:
-            sns.lineplot(data=self.data, x=self.date_col, y=self.value_col, label="Close Price", color="b", lw=2)
-            plt.xlabel("Date")
-            locator = mdates.AutoDateLocator()
-            plt.gca().xaxis.set_major_locator(locator)
-            plt.gca().xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
-            plt.gcf().autofmt_xdate()  # Rotate the x labels for better visibility
-        else:
-            sns.lineplot(data=self.data, x=self.data.index, y=self.value_col, label="Close Price", color="b", lw=2)
-            plt.xlabel("Index")
-        plt.title(f"Stock Price of {self.label}")
-        plt.ylabel("Price")
+        # Create the figure
+        fig = go.Figure()
 
+        # Determine the x-axis values (date or index)
+        x_col = (
+            self.data[self.date_col] if self.date_col is not None else self.data.index
+        )
+
+        # Add the line plot for the close price
+        fig.add_trace(
+            go.Scatter(
+                x=x_col,
+                y=self.data[self.value_col],
+                mode="lines",
+                name="Close Price",
+                line=dict(color="blue", width=2),  # Line color and width
+            )
+        )
+
+        # Set x-axis label based on the presence of date_col
+        x_label = "Date" if self.date_col is not None else "Index"
+
+        # Update layout: title, labels
+        fig.update_layout(
+            title_text=f"Stock Price of {self.label}",  # Set title
+            xaxis_title=x_label,  # X-axis label
+            yaxis_title="Price",  # Y-axis label
+            width=1200,  # Set figure size (width)
+            height=600,  # Set figure size (height)
+            showlegend=True,  # Display the legend
+        )
+
+        # Automatically handle date formatting if 'date_col' is present
+        if self.date_col:
+            fig.update_xaxes(tickformat="%Y-%m-%d")  # Format x-axis for date
+
+        # Add moving averages if available
         if plot_ma:
-            ma_columns = [col for col in self.data.columns if col.startswith(self.value_col) and col.endswith("-day-MA")]
-            x_col = self.date_col if self.date_col is not None else self.data.index
+            ma_columns = [
+                col
+                for col in self.data.columns
+                if col.startswith(self.value_col) and col.endswith("-day-MA")
+            ]
             for ma_col in ma_columns:
-                sns.lineplot(data=self.data, x=x_col, y=ma_col, label=ma_col[len(self.value_col)+1:], lw=3, alpha=0.75)
+                fig.add_trace(
+                    go.Scatter(
+                        x=x_col,
+                        y=self.data[ma_col],
+                        mode="lines",
+                        name=ma_col[len(self.value_col) + 1 :],
+                        line=dict(width=3),
+                        opacity=0.9,  # Add transparency to the line
+                    )
+                )
 
-        plt.legend()
-        plt.tight_layout()
         if save_fig_name is not None:
-            plt.savefig(save_fig_name)
-            plt.close()
+            self._save_figures(fig, save_fig_name, save_fmts=save_fmts)
         else:
-            plt.show()
+            fig.show()
 
-    def plot_volume(self, save_fig_name: Union[str, None] = None) -> None:
+    def plot_volume(
+        self,
+        save_fig_name: Union[str, None] = None,
+        save_fmts: List[str] = ["html", "png"],
+    ) -> None:
         """
-        Plots the stock volume data using Seaborn.
+        Plots the stock volume data using Plotly.
 
         Args:
         - save_fig_name (str): Name of the file to save the plot (unless None). Default is None.
         """
         if self.volume_col is None:
-            warn("Volume column not provided. Please provide the volume column to plot the volume data.")
+            warn(
+                "Volume column not provided. Please provide the volume column to plot the volume data."
+            )
             return
 
-        plt.figure(figsize=(12, 6))
-        if self.date_col is not None:
-            sns.barplot(data=self.data, x=self.date_col, y=self.volume_col, label="Volume", color="g")
-            plt.xlabel("Date")
-            locator = mdates.AutoDateLocator()
-            plt.gca().xaxis.set_major_locator(locator)
-            plt.gcf().autofmt_xdate()
-        else:
-            sns.barplot(data=self.data, x=self.data.index, y=self.volume_col, label="Volume", color="g")
-            plt.xlabel("Index")
-        plt.title(f"Stock Volume of {self.label}")
-        plt.ylabel("Volume")
-        plt.legend()
-        plt.tight_layout()
-        if save_fig_name is not None:
-            plt.savefig(save_fig_name)
-            plt.close()
-        else:
-            plt.show()
+        # Create the figure
+        fig = go.Figure()
 
-    def plot_return(self, plot_ma: bool = False, hist_bins: int = 50, save_fig_name: Union[str, None] = None) -> None:
+        # Check if 'date_col' is available
+        x_col = (
+            self.data[self.date_col] if self.date_col is not None else self.data.index
+        )
+
+        # Add bar plot for volume
+        fig.add_trace(
+            go.Bar(
+                x=x_col,  # Date or index
+                y=self.data[self.volume_col],  # Volume column
+                name="Volume",
+                marker=dict(color="green"),  # Set bar color to green
+            )
+        )
+
+        # Set x-axis label based on the presence of date_col
+        x_label = "Date" if self.date_col is not None else "Index"
+
+        # Update layout: title, labels, and format
+        fig.update_layout(
+            title_text=f"Stock Volume of {self.label}",  # Set title
+            xaxis_title=x_label,  # X-axis label
+            yaxis_title="Volume",  # Y-axis label
+            width=1200,  # Set figure size (width)
+            height=600,  # Set figure size (height)
+            showlegend=True,  # Display the legend
+        )
+
+        # Automatically handle date formatting if 'date_col' is present
+        if self.date_col:
+            fig.update_xaxes(tickformat="%Y-%m-%d")  # Format x-axis for date
+
+        if save_fig_name is not None:
+            self._save_figures(fig, save_fig_name, save_fmts=save_fmts)
+        else:
+            fig.show()
+
+    def plot_return(
+        self,
+        plot_ma: bool = False,
+        hist_bins: int = 50,
+        save_fig_name: Union[str, None] = None,
+        save_fmts: List[str] = ["png", "html"],
+    ) -> None:
         """
-        Plots the daily stock price returns using Seaborn.
+        Plots the daily stock price returns using Plotly.
 
         Args:
         - plot_ma (bool): If True, plot all moving averages along with the daily returns. Default is False.
         - hist_bins (int): Number of bins to plot in histogram of daily returns. Default is 50.
         - save_fig_name (str): Name of the file to save the plot (unless None). Default is None.
         """
-        fig, axs = plt.subplots(2, 1, figsize=(12, 12), sharex=False)
 
-        # Plot top figure
-        ax1 = axs[0]
-        if self.date_col is not None:
-            sns.lineplot(data=self.data, x=self.date_col, y=self.return_col, label="Daily Return of Close Price", color="b", lw=2, linestyle='--', marker='o', ax=ax1)
-            ax1.set_xlabel("Date")
-            locator = mdates.AutoDateLocator()
-            ax1.xaxis.set_major_locator(locator)
-            ax1.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
-            ax1.tick_params(axis='x', rotation=45)
+        # Top figure: Line plot of daily return and moving averages
+        fig = make_subplots(
+            rows=2,
+            cols=1,
+            shared_xaxes=False,
+            subplot_titles=[
+                f"Daily Stock Price Returns of {self.label}",
+                "Distribution of Returns",
+            ],
+            vertical_spacing=0.1,
+        )
+
+        # Plot daily return
+        x_col = (
+            self.data[self.date_col] if self.date_col is not None else self.data.index
+        )
+
+        if self.date_col:
+            hovertemplate = (
+                lambda label: f"%{{x|%Y-%m-%d}}<br>Daily Return{label}: %{{y:.2%}}<extra></extra>"
+            )  # Format x as date
         else:
-            sns.lineplot(data=self.data, x=self.data.index, y=self.return_col, label="Daily Return of Close Price", color="b", lw=2, linestyle='--', marker='o', ax=ax1)
-            ax1.set_xlabel("Index")
-        ax1.set_title(f"Daily Stock Price Returns of {self.label}")
-        ax1.set_ylabel("Daily Return")
-        ax1.yaxis.set_major_formatter(PercentFormatter(1))
+            hovertemplate = (
+                lambda label: f"Index: %{{x}}<br>Daily Return{label}: %{{y:.2%}}<extra></extra>"
+            )  # Show index value
 
+        fig.add_trace(
+            go.Scatter(
+                x=x_col,
+                y=self.data[self.return_col],
+                mode="lines+markers",
+                name="Daily Return of Close Price",
+                line=dict(color="blue", dash="dash"),
+                marker=dict(symbol="circle", color="blue"),
+                hovertemplate=hovertemplate(""),
+            ),
+            row=1,
+            col=1,
+        )
+
+        # Plot moving averages if available
         if plot_ma:
-            ma_columns = [col for col in self.data.columns if col.startswith(self.return_col) and col.endswith("-day-MA")]
-            x_col = self.date_col if self.date_col is not None else self.data.index
+            ma_columns = [
+                col
+                for col in self.data.columns
+                if col.startswith(self.return_col) and col.endswith("-day-MA")
+            ]
             for ma_col in ma_columns:
-                sns.lineplot(data=self.data, x=x_col, y=ma_col, label=ma_col[len(self.return_col)+1:], lw=3, alpha=0.75, ax=ax1)
+                fig.add_trace(
+                    go.Scatter(
+                        x=x_col,
+                        y=self.data[ma_col],
+                        mode="lines",
+                        name=ma_col[len(self.return_col) + 1 :],
+                        line=dict(width=3),
+                        opacity=0.9,
+                        hovertemplate=hovertemplate(
+                            label=f" ({ma_col[len(self.return_col)+1:]})"
+                        ),
+                    ),
+                    row=1,
+                    col=1,
+                )
 
-        ax1.legend()
+        # Set x-axis labels
+        if self.date_col:
+            fig.update_xaxes(title_text="Date", row=1, col=1)
+        else:
+            fig.update_xaxes(title_text="Index", row=1, col=1)
 
-        # Plot bottom figure
-        ax2 = axs[1]
-        sns.histplot(data=self.data, x=self.return_col, bins=hist_bins, ax=ax2, stat="density")
+        # Set y-axis format to percentage
+        fig.update_yaxes(title_text="Daily Return", tickformat=".0%", row=1, col=1)
 
-        # Fit t-student distribution
+        # Bottom figure: Histogram with fitted distributions
+        data_min = self.data[self.return_col].min()
+        data_max = self.data[self.return_col].max()
+        data_range = [
+            min(-abs(data_min), -abs(data_max)),
+            max(abs(data_min), abs(data_max)),
+        ]
+        hist = np.histogram(
+            self.data[self.return_col].dropna(),
+            bins=hist_bins,
+            range=data_range,
+            density=True,
+        )
+        x_hist = hist[1][:-1]
+        y_hist = hist[0]
+
+        # Plot histogram
+        fig.add_trace(
+            go.Bar(
+                x=x_hist,
+                y=y_hist,
+                name="Histogram",
+                marker=dict(color="blue"),
+                showlegend=False,
+                hovertemplate="Bin centre: %{x:.2%}<br>Density: %{y:.2f}<extra></extra>",
+            ),
+            row=2,
+            col=1,
+        )
+
+        # Fit Student's t distribution
         t_params = t.fit(self.data[self.return_col].dropna())
         t_dist = t(*t_params)
+        x_fit = np.linspace(
+            self.data[self.return_col].min(), self.data[self.return_col].max(), 100
+        )
+
+        # Plot t-distribution
+        fig.add_trace(
+            go.Scatter(
+                x=x_fit,
+                y=t_dist.pdf(x_fit),
+                mode="lines",
+                name=f"Student's t (df={t_params[0]:.6f})",
+                line=dict(color="red", width=4, dash="dot"),
+                opacity=0.9,
+            ),
+            row=2,
+            col=1,
+        )
 
         # Fit Gaussian distribution
         gaussian_params = norm.fit(self.data[self.return_col].dropna())
         gaussian_dist = norm(*gaussian_params)
 
-        # Plot fitted distributions
-        x = np.linspace(self.data[self.return_col].min(), self.data[self.return_col].max(), 100)
-        ax2.plot(x, t_dist.pdf(x), label=f"Student's t (df={t_params[0]:.2f})", color="r", lw=2, alpha=0.75)
-        ax2.plot(x, gaussian_dist.pdf(x), label=f"Gaussian (mean={gaussian_params[0]:.3f}, std={gaussian_params[1]:.3f})", color="m", lw=2, alpha=0.75)
+        # Plot Gaussian distribution
+        fig.add_trace(
+            go.Scatter(
+                x=x_fit,
+                y=gaussian_dist.pdf(x_fit),
+                mode="lines",
+                name=f"Gaussian (mean={gaussian_params[0]:.6f}, std={gaussian_params[1]:.6f})",
+                line=dict(color="magenta", width=4, dash="dot"),
+                opacity=0.9,
+            ),
+            row=2,
+            col=1,
+        )
 
-        ax2.set_xlabel("Daily Return")
-        ax2.set_ylabel("Frequency")
-        ax2.xaxis.set_major_formatter(PercentFormatter(1))
-        ax2.legend()
+        # Update x-axis format for percentage and y-axis format for frequency
+        fig.update_xaxes(title_text="Daily Return", tickformat=".0%", row=2, col=1)
+        fig.update_yaxes(title_text="Frequency", row=2, col=1)
 
-        plt.tight_layout()
+        # Set layout
+        fig.update_layout(
+            height=800,
+            width=1200,
+            title_text=f"Daily Stock Price Returns of {self.label}",
+            showlegend=True,
+        )
+
         if save_fig_name is not None:
-            plt.savefig(save_fig_name)
-            plt.close()
+            self._save_figures(fig, save_fig_name, save_fmts=save_fmts)
         else:
-            plt.show()
+            fig.show()
 
-
-    def stl_decomposition(self, freq: int = 252, save_fig_name: Union[str, None] = None) -> None:
+    def stl_decomposition(
+        self,
+        freq: int = 252,
+        save_fig_name: Union[str, None] = None,
+        save_fmts: List[str] = ["html", "png"],
+    ) -> None:
         """
         Decomposes the stock price data into trend, seasonal, and residual components using STL decomposition.
 
@@ -222,31 +425,101 @@ class EDA:
         """
 
         if self.date_col is None:
-            warn("Date column not provided. Please provide the date column to decompose the stock price data.")
+            warn(
+                "Date column not provided. Please provide the date column to decompose the stock price data."
+            )
             return
 
         if self.date_col is not None:
-            data_series = pd.Series(self.data[self.value_col].values, index=self.data[self.date_col], name=f"STL decomposition of {self.label} {self.value_col}")
+            data_series = pd.Series(
+                self.data[self.value_col].values,
+                index=self.data[self.date_col],
+                name=f"STL decomposition of {self.label} {self.value_col}",
+            )
         else:
-            data_series = pd.Series(self.data[self.value_col].values, name=f"STL decomposition of {self.label} {self.value_col}")
+            data_series = pd.Series(
+                self.data[self.value_col].values,
+                name=f"STL decomposition of {self.label} {self.value_col}",
+            )
         stl = STL(data_series, period=freq)
         res = stl.fit()
-        res.plot()
-        plt.gcf().autofmt_xdate()
-        plt.tight_layout()
+
+        # Create the figure for STL decomposition components
+        fig = go.Figure()
+
+        # Add observed data trace
+        fig.add_trace(
+            go.Scatter(
+                x=data_series.index,
+                y=data_series.values,
+                mode="lines",
+                name="Observed",
+                line=dict(color="blue"),
+            )
+        )
+
+        # Add trend component trace
+        fig.add_trace(
+            go.Scatter(
+                x=data_series.index,
+                y=res.trend,
+                mode="lines",
+                name="Trend",
+                line=dict(color="red"),
+            )
+        )
+
+        # Add seasonal component trace
+        fig.add_trace(
+            go.Scatter(
+                x=data_series.index,
+                y=res.seasonal,
+                mode="lines",
+                name="Seasonal",
+                line=dict(color="green"),
+            )
+        )
+
+        # Add residual component trace
+        fig.add_trace(
+            go.Scatter(
+                x=data_series.index,
+                y=res.resid,
+                mode="lines",
+                name="Residual",
+                line=dict(color="orange"),
+            )
+        )
+
+        # Update layout
+        fig.update_layout(
+            title=f"STL Decomposition of {self.label} {self.value_col}",
+            xaxis_title="Date" if self.date_col is not None else "Index",
+            yaxis_title="Value",
+            width=1200,  # Set width
+            height=800,  # Set height
+            legend_title="Components",
+            showlegend=True,
+        )
+
+        # Format x-axis dates
+        if self.date_col:
+            fig.update_xaxes(tickformat="%Y-%m-%d")  # Format x-axis for date
+
         if save_fig_name is not None:
-            plt.savefig(save_fig_name)
-            plt.close()
+            self._save_figures(fig, save_fig_name, save_fmts=save_fmts)
         else:
-            plt.show()
+            fig.show()
 
 
 if __name__ == "__main__":
 
     from pathlib import Path
+
     PROJECT_PATH = Path("/home/janx/repos/stock-market-prediction-project")
 
     import sys
+
     sys.path.append(str(PROJECT_PATH))
 
     # Import toy data
@@ -268,9 +541,19 @@ if __name__ == "__main__":
     print(f"Index range: {eda.get_index_range()}")
 
     real_data = pd.read_csv(PROJECT_PATH / "csv" / "AAPL_historical_data.csv")
-    eda_real = EDA(data=real_data, label="AAPL", value_col="Adj Close", date_col="Date", volume_col="Volume")
-    eda_real.add_moving_average(window=[7, 15, 30], column=eda_real.data[eda_real.value_col])
-    eda_real.add_moving_average(window=[7, 15, 30], column=eda_real.data[eda_real.return_col])
+    eda_real = EDA(
+        data=real_data,
+        label="AAPL",
+        value_col="Adj Close",
+        date_col="Date",
+        volume_col="Volume",
+    )
+    eda_real.add_moving_average(
+        window=[7, 15, 30], column=eda_real.data[eda_real.value_col]
+    )
+    eda_real.add_moving_average(
+        window=[7, 15, 30], column=eda_real.data[eda_real.return_col]
+    )
     eda_real.plot_price(plot_ma=True)
     eda_real.plot_volume()
     eda_real.plot_return(plot_ma=True)
