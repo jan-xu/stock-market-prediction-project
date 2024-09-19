@@ -45,6 +45,7 @@ if __name__ == "__main__":
     batch_size = args.batch_size
     look_back = args.look_back
     pred_horizon = args.pred_horizon
+    hidden_width = args.hidden_width
 
     # Create run folder
     run_folder = create_run_folder(run_name)
@@ -164,9 +165,9 @@ if __name__ == "__main__":
         from models import LSTMModel, CNNLSTMModel
 
         if args.architecture == "LSTM":
-            model = LSTMModel(input_size=K, hidden_layer_size=128).to(device)
+            model = LSTMModel(input_size=K, hidden_layer_size=hidden_width).to(device)
         elif args.architecture == "CNN-LSTM":
-            model = CNNLSTMModel(input_size=K, hidden_layer_size=128, conv_channels=32).to(device)
+            model = CNNLSTMModel(input_size=K, hidden_layer_size=hidden_width, conv_channels=32).to(device)
 
         criterion = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=lr)

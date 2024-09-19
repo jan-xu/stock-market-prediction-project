@@ -1,7 +1,7 @@
 import wandb
 
 def wandb_config(args):
-    print(f"Logging to Wandb: {args.project}/{args.name}")
+    print(f"Logging to Wandb: {args.project}/{args.name}\n")
     wandb.init(
         project=args.project,
         name=args.name,
@@ -11,5 +11,6 @@ def wandb_config(args):
             "epochs": args.epochs,
             "look_back": args.look_back,
             "pred_horizon": args.pred_horizon,
+            "hidden_width": args.hidden_width,
         }
     )

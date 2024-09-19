@@ -8,6 +8,7 @@ DEFAULT_ARGS = {
     "batch_size": 64,
     "look_back": 64,
     "pred_horizon": 1,
+    "hidden_width": 128,
     "wandb": False,
 }
 
@@ -23,6 +24,8 @@ def parse_args():
     parser.add_argument('-b', '--batch_size', type=int, default=DEFAULT_ARGS['batch_size'], help='Batch size')
     parser.add_argument('-l', '--look-back', type=int, default=DEFAULT_ARGS['look_back'], help='Look-back length')
     parser.add_argument('-ph', '--pred-horizon', type=int, default=DEFAULT_ARGS['pred_horizon'], help='Prediction horizon size')
+    parser.add_argument('-hw', '--hidden-width', type=int, default=DEFAULT_ARGS['hidden_width'], help='Hidden width')
+    parser.add_argument('--eda', action='store_true', help='Perform exploratory data analysis before experiment starts')
     parser.add_argument('--wandb', action='store_true', help='Log to wandb')
     parser.add_argument('--ignore-timestamp', action='store_true', help='Ignore timestamp in run name')
 
@@ -44,5 +47,6 @@ def parse_args():
     print(f"  - Batch size: {args.batch_size}")
     print(f"  - Look-back: {args.look_back}")
     print(f"  - Prediction horizon: {args.pred_horizon}")
+    print(f"  - Hidden width: {args.hidden_width}")
 
     return args

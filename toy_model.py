@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import wandb
 
+from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -15,16 +16,36 @@ import plotly.graph_objects as go
 from toy import SyntheticStockData
 from config import create_run_folder, wandb_config, STOCK_MAPPING
 
+from ui import UserPrompt, run_eda
+from ts_analysis import EDA
+
 from arguments import parse_args
 
 np.random.seed(0)
 
+from sklearn.model_selection import TimeSeriesSplit
 
-def train_test_split(data, test_size=0.05):
-    split_idx = int(len(data) * (1 - test_size))
-    train_data = data[:split_idx].copy()
-    test_data = data[split_idx:].copy()
-    return train_data, test_data
+
+
+def auto_time_series_cross_validation(data, args, val_size=10):
+    """Automatic configuration of time-series cross-validation based on experiment configuration
+    (conveyed through args) and the actual validation set size (val_size).
+
+    Specifically, the number of splits is selected based on the look_back and val_size parameters.
+    The gap parameter is the negative of look_back (in order to include the input parameters in the
+    validation set, which intersects with the last samples in the training set), and the test_size
+    parameter is equal to the look_back parameter plus the specified validation set size.
+    """
+    n_splits = int(len(data) / (args.look_back + val_size)) - 1
+    gap = -args.look_back
+    test_size = args.look_back + val_size
+    return time_series_cross_validation(data, n_splits, gap=gap, test_size=test_size)
+
+def time_series_cross_validation(data, n_splits, gap=0, test_size=None):
+    ts_cv = TimeSeriesSplit(n_splits=n_splits, gap=gap, test_size=test_size)
+    return ts_cv.split(data)
+
+
 
 
 if __name__ == "__main__":
@@ -35,16 +56,48 @@ if __name__ == "__main__":
     # Set wandb configuration
     if args.wandb:
         wandb_config(args)
-        FIGURE_TABLE = wandb.Table(columns=["generated_data", "generated_data_train_test", "generated_rel_diff_train_test", "generated_volume_train_test"])
+
+        # TODO: Figure out what to do with this
+        FIGURE_COLUMNS = []
+        # FIGURE_TABLE = wandb.Table(columns=["generated_data", "generated_data_train_test", "generated_rel_diff_train_test", "generated_volume_train_test"])
         FIGURE_LIST = []
+
+    epochs = args.epochs
+    batch_size = args.batch_size
+    look_back = args.look_back
+    pred_horizon = args.pred_horizon
+    hidden_width = args.hidden_width
 
     syn_data_obj = SyntheticStockData() # TODO: create database with data, both synthetic and real-life
     syn_data_obj()
     df = syn_data_obj.get_data_pandas()
 
+    # Create run folder
+    run_folder = create_run_folder(run_name)
+
+    if args.eda:
+        logged_plots = run_eda(df, run_folder, label="SYN_DATA", value_col="Stock Price", add_ma=True)
+        prompt_answer = UserPrompt.prompt_continue()
+        prompt_answer()
+        if args.wandb:
+            FIGURE_LIST.extend([wandb.Html(str(html_plot)) for html_plot in logged_plots if html_plot.endswith(".html")])
+            FIGURE_COLUMNS.extend([Path(html_plot).name for html_plot in logged_plots if html_plot.endswith(".html")])
+            FIGURE_TABLE = wandb.Table(columns=FIGURE_COLUMNS)
+            FIGURE_TABLE.add_data(*FIGURE_LIST)
+            wandb.log({"data_analysis": FIGURE_TABLE}, step=0)
+
+    # Time-series cross-validation on dataset
+    ts_cv = auto_time_series_cross_validation(df, args)
 
 
-
+    # Training loop
+    # Log following (running) training variables:
+    # - look_back
+    # - pred_horizon
+    # - learning_rate
+    # - dataset_size
+    # - batch_size
+    
 
     # NUM_EPOCHS = 10000
     # BATCH_SIZE = 64

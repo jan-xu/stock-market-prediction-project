@@ -430,17 +430,12 @@ class EDA:
             )
             return
 
-        if self.date_col is not None:
-            data_series = pd.Series(
-                self.data[self.value_col].values,
-                index=self.data[self.date_col],
-                name=f"STL decomposition of {self.label} {self.value_col}",
-            )
-        else:
-            data_series = pd.Series(
-                self.data[self.value_col].values,
-                name=f"STL decomposition of {self.label} {self.value_col}",
-            )
+        data_series = pd.Series(
+            self.data[self.value_col].values,
+            index=self.data[self.date_col],
+            name=f"STL decomposition of {self.label} {self.value_col}",
+        )
+
         stl = STL(data_series, period=freq)
         res = stl.fit()
 
@@ -536,6 +531,7 @@ if __name__ == "__main__":
     eda.add_moving_average(window=[7, 15, 30], column=eda.data[eda.return_col])
     eda.plot_price(plot_ma=True)
     eda.plot_return(plot_ma=True)
+    eda.stl_decomposition()
     print("Summary of synthetic data:")
     print(eda.get_summary())
     print(f"Index range: {eda.get_index_range()}")

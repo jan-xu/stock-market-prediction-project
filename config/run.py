@@ -18,7 +18,7 @@ def create_run_folder(run_name):
     # Create run folder
     run_folder = RUN_SUPER_FOLDER / run_name
     run_folder.mkdir()
-    print(f"Created run folder: {run_folder}")
+    print(f"Created run folder: {run_folder}\n")
 
     # Create subfolders
     for subfolder in SUBFOLDERS:
