@@ -36,6 +36,12 @@ class EDA:
         self.return_col = "Return"
 
         if self.date_col is not None:
+            if (
+                self.date_col not in self.data.columns
+                and self.data.index.name == self.date_col
+            ):
+                self.data = self.data.copy().reset_index()
+
             self.data[self.date_col] = pd.to_datetime(self.data[self.date_col])
 
         # Compute daily return
@@ -531,15 +537,16 @@ if __name__ == "__main__":
     eda.add_moving_average(window=[7, 15, 30], column=eda.data[eda.return_col])
     eda.plot_price(plot_ma=True)
     eda.plot_return(plot_ma=True)
-    eda.stl_decomposition()
-    print("Summary of synthetic data:")
-    print(eda.get_summary())
-    print(f"Index range: {eda.get_index_range()}")
+    print("Summary of synthetic data:\n")
+    print(eda.get_summary(), "\n")
+    print(f"Index range: {eda.get_index_range()}\n")
 
-    real_data = pd.read_csv(PROJECT_PATH / "csv" / "AAPL_historical_data.csv")
+    # Import real data
+    label = "MSFT"
+    real_data = pd.read_csv(PROJECT_PATH / "data" / "stock_data" / f"{label}.csv")
     eda_real = EDA(
         data=real_data,
-        label="AAPL",
+        label=label,
         value_col="Adj Close",
         date_col="Date",
         volume_col="Volume",
@@ -554,6 +561,6 @@ if __name__ == "__main__":
     eda_real.plot_volume()
     eda_real.plot_return(plot_ma=True)
     eda_real.stl_decomposition()
-    print("Summary of AAPL data:")
-    print(eda_real.get_summary())
-    print(f"Date range: {eda_real.get_date_range()}")
+    print(f"Summary of {label} data:\n")
+    print(eda_real.get_summary(), "\n")
+    print(f"Date range: {eda_real.get_date_range()}\n")
