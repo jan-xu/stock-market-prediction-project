@@ -1,5 +1,6 @@
 from typing import Dict, Callable
 
+
 class UserPrompt:
 
     @staticmethod
@@ -17,6 +18,7 @@ class UserPrompt:
     @staticmethod
     def prompt_continue():
         from IPython import embed
+
         prompt_string = str(
             "Choose one of the following options:\n"
             "  (1) Continue with the experiment\n"
@@ -27,6 +29,6 @@ class UserPrompt:
         options = {
             "1": lambda: print("Continuing with the experiment..."),
             "2": lambda: (print("Experiment aborted."), exit()),
-            "3": embed
+            "3": embed,
         }
         return UserPrompt.prompt(prompt_string, options)
