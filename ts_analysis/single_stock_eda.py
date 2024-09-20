@@ -21,7 +21,7 @@ class EDA:
         self,
         data: pd.DataFrame,
         label: str,
-        value_col: str = "Close",
+        value_col: str = "Adj Close",
         date_col: Union[str, None] = None,
         volume_col: Union[str, None] = None,
     ) -> None:
