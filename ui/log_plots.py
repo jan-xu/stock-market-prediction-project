@@ -23,7 +23,7 @@ def run_eda(
     label : str
         The label (stock ticker symbol) of the time-series data.
     value_col : str
-        The name of the column containing the value of the time-series data (usually "Close").
+        The name of the column containing the value of the time-series data (usually "Adj Close").
     date_col : str, optional
         The name of the column containing the date of the time-series data (usually "Date").
     volume_col : str, optional
