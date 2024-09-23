@@ -4,7 +4,7 @@ from datetime import datetime
 import pandas as pd
 import yfinance as yf
 
-from data import DATABASE_PATH, StockDatabase
+from data.database import DATABASE_PATH, StockDatabase
 from ui import run_eda
 
 
@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     # Plot the closing price
     if args.plot:
-        run_eda(
+        _, _ = run_eda(
             stock_data,
             label=ticker,
             value_col="Adj Close",
