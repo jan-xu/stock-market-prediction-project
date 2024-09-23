@@ -6,8 +6,9 @@ def wandb_config(args):
         project=args.project,
         name=args.name,
         config={
+            "device": args.device.type,
             "architecture": args.architecture,
-            "dataset": args.dataset,
+            "ticker": args.ticker,
             "epochs": args.epochs,
             "look_back": args.look_back,
             "pred_horizon": args.pred_horizon,

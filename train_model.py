@@ -55,7 +55,7 @@ if __name__ == "__main__":
     # Generate and plot data
 
     today = datetime.today().strftime("%Y-%m-%d")
-    stock_symbol = STOCK_MAPPING[args.dataset] if args.dataset in STOCK_MAPPING else args.dataset
+    stock_symbol = STOCK_MAPPING[args.ticker] if args.ticker in STOCK_MAPPING else args.ticker
     sp500_data = yf.download(stock_symbol, start="1983-01-01", end=today)
 
     time_series = sp500_data[['Close', 'Volume']].reset_index().rename({"Close": "value", "Volume": "volume"}, axis=1)
@@ -160,7 +160,7 @@ if __name__ == "__main__":
         train_dataset = TensorDataset(torch.tensor(X_train, dtype=torch.float32), torch.tensor(y_train, dtype=torch.float32)) # scaled
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
 
-        device = torch.device("cuda:0")
+        device = args.device
 
         from models import LSTMModel, CNNLSTMModel
 

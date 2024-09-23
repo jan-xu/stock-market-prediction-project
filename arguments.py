@@ -1,9 +1,11 @@
+import torch
 import argparse
+from warnings import warn
 from datetime import datetime
 
 DEFAULT_ARGS = {
     "architecture": "CNN-LSTM",
-    "dataset": "SP500",
+    "ticker": "SP500",
     "epochs": 1000,
     "batch_size": 64,
     "look_back": 64,
@@ -18,8 +20,9 @@ def parse_args():
 
     parser.add_argument('-p', '--project', type=str, default='stock-prediction-playground', help='Wandb project name')
     parser.add_argument('-n', '--name', type=str, default=None, help='Run name (default: "RUN--<TIMESTAMP>")')
+    parser.add_argument('-d', '--device', type=str.lower, default='cpu', choices=['cpu', 'cuda'], help='Device to run the model on')
     parser.add_argument('-a', '--architecture', type=str, default=DEFAULT_ARGS['architecture'], choices=["LSTM", "CNN-LSTM"], help='Model architecture')
-    parser.add_argument('-d', '--dataset', type=str, default=DEFAULT_ARGS['dataset'], help='Dataset name')
+    parser.add_argument('-t', '--ticker', type=str, default=DEFAULT_ARGS['ticker'], help='Stock ticker name')
     parser.add_argument('-e', '--epochs', type=int, default=DEFAULT_ARGS['epochs'], help='Number of epochs')
     parser.add_argument('-b', '--batch_size', type=int, default=DEFAULT_ARGS['batch_size'], help='Batch size')
     parser.add_argument('-l', '--look-back', type=int, default=DEFAULT_ARGS['look_back'], help='Look-back length')
@@ -38,11 +41,21 @@ def parse_args():
         print(f"Run name not provided. Using default: RUN{time_stamp_suffix}")
         args.name = f"RUN{time_stamp_suffix}"
 
+    if args.device == 'cuda':
+        if not torch.cuda.is_available():
+            warn("CUDA is not available. Using CPU instead.")
+            args.device = torch.device('cpu')
+        else:
+            args.device = torch.device('cuda:0')
+    else:
+        args.device = torch.device('cpu')
+
     print(f"Run configuration:")
     print(f"  - Project: {args.project}")
     print(f"  - Run name: {args.name}")
+    print(f"  - Device: {args.device.type}")
     print(f"  - Architecture: {args.architecture}")
-    print(f"  - Dataset: {args.dataset}")
+    print(f"  - Stock ticker: {args.ticker}")
     print(f"  - Epochs: {args.epochs}")
     print(f"  - Batch size: {args.batch_size}")
     print(f"  - Look-back: {args.look_back}")
