@@ -1,4 +1,4 @@
-name: Python Test
+name: Python Unit Tests
 
 # When to run the workflow: on push (commit) or pull request to the main branch.
 on:
@@ -17,12 +17,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2  # This checks out your code so it can be tested.
+        uses: actions/checkout@v3  # This checks out your code so it can be tested.
 
       - name: Set up Python
-        uses: actions/setup-python@v2  # Sets up Python environment.
+        uses: actions/setup-python@v3  # Sets up Python environment.
         with:
-          python-version: '3.12.3'  # Replace '3.x' with your required Python version.
+          python-version: '3.12.3'
 
       - name: Install dependencies
         run: |
