@@ -1,0 +1,34 @@
+name: Python Test
+
+# When to run the workflow: on push (commit) or pull request to the main branch.
+on:
+  push:
+    branches:
+      - main
+      - dev_init
+  pull_request:
+    branches:
+      - main
+      - dev_init
+
+jobs:
+  unit_tests:
+    runs-on: ubuntu-latest  # The environment to run tests (Ubuntu in this case).
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2  # This checks out your code so it can be tested.
+
+      - name: Set up Python
+        uses: actions/setup-python@v2  # Sets up Python environment.
+        with:
+          python-version: '3.12.3'  # Replace '3.x' with your required Python version.
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt  # Install dependencies defined in the project.
+
+      - name: Run tests
+        run: |
+          python -m pytest
