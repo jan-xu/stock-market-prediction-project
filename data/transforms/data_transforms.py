@@ -1,7 +1,10 @@
+import torch
 import numpy as np
 import pandas as pd
 
 from typing import Union
+
+# TODO: unify typings for NumPy, Pandas and Torch data structures
 
 def get_relative_change(data: Union[pd.DataFrame, pd.Series, np.ndarray]) -> Union[pd.DataFrame, pd.Series]:
     """
@@ -14,11 +17,12 @@ def get_relative_change(data: Union[pd.DataFrame, pd.Series, np.ndarray]) -> Uni
     else:
         raise ValueError("Data must be a pandas DataFrame / Series or NumPy array.")
 
-if __name__ == "__main__":
 
-    data = np.array([[1., 2., 3., 4., 5.], [2., 3., 4., 5., 6.]]).T
-    df = pd.DataFrame(data, columns=["value1", "value2"])
-    expected_output = np.array([[0., 1., 0.5, 0.33333333, 0.25], [0., 0.5, 0.33333333, 0.25, 0.2]]).T
-
-    assert np.allclose(get_relative_change(data), expected_output)
-    assert np.allclose(get_relative_change(df).to_numpy(), expected_output)
+def apply_relative_change(relative_change: Union[np.ndarray, torch.Tensor], start_value):
+    """
+    Apply the relative change to a starting value. Assume the relative change dimension is the last axis.
+    """
+    if isinstance(relative_change, torch.Tensor):
+        return (relative_change + 1).log().cumsum(dim=-1).exp() * start_value
+    elif isinstance(relative_change, np.ndarray):
+        return np.exp(np.log(relative_change + 1).cumsum(axis=-1)) * start_value

@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
-from data.transforms import get_relative_change, FeatureNormalisation
+from data.transforms import get_relative_change, apply_relative_change, FeatureNormalisation
+
 
 def test_get_relative_change():
     data = np.array([[1., 2., 3., 4., 5.], [2., 3., 4., 5., 6.]]).T
@@ -9,6 +10,15 @@ def test_get_relative_change():
 
     assert np.allclose(get_relative_change(data), expected_output)
     assert np.allclose(get_relative_change(df).to_numpy(), expected_output)
+
+
+def test_apply_relative_change():
+    data = np.array([[0., 1., 0.5, 0.33333333, 0.25], [0., 0.5, 0.33333333, 0.25, 0.2]])
+    start_value = np.array([[1.], [2.]])
+    expected_output = np.array([[1., 2., 3., 4., 5.], [2., 3., 4., 5., 6.]])
+
+    assert np.allclose(apply_relative_change(data, start_value), expected_output)
+
 
 def test_feature_normalisation():
     # 1-D data
