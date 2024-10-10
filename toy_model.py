@@ -50,10 +50,7 @@ def val_forward_pass(model, val_loader, criterion, device):
             pred = model(inputs, reset_hidden=True)
             loss = criterion(pred, targets)
             losses.append(loss.item())
-            if pred[0, 0].sign() == targets[0, 0].sign():
-                accuracies.append(1)
-            else:
-                accuracies.append(0)
+            accuracies.append((torch.sum(pred.sign() == targets.sign()) / pred.numel()).item())
 
     return accuracies, losses
 
@@ -69,6 +66,7 @@ def main(args):
     look_back = args.look_back
     pred_horizon = args.pred_horizon
     hidden_width = args.hidden_width
+    recurrent_pred_horizon = args.recurrent_pred_horizon
 
     #######################
     # DATA INITIALISATION #
@@ -129,15 +127,15 @@ def main(args):
     ########################
 
     device = args.device
-    lr = 0.001  # TODO: add learning rate scheduler
+    lr = 0.001
 
     if args.architecture == "LSTM":
-        model = LSTMModel(input_size=K, hidden_layer_size=hidden_width).to(
+        model = LSTMModel(input_size=K, hidden_layer_size=hidden_width, pred_horizon=pred_horizon, recurrent_pred_horizon=recurrent_pred_horizon).to(
             device
         )  # TODO: add static features as an option to model
     elif args.architecture == "CNN-LSTM":
         model = CNNLSTMModel(
-            input_size=K, hidden_layer_size=hidden_width, conv_channels=32
+            input_size=K, hidden_layer_size=hidden_width, conv_channels=32, pred_horizon=pred_horizon, recurrent_pred_horizon=recurrent_pred_horizon
         ).to(device)
 
     criterion = nn.MSELoss()
@@ -185,9 +183,7 @@ def main(args):
 
         if epoch % 100 == 0:
             val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
-            accuracies, losses = val_forward_pass(
-                model, val_loader, criterion, device, normaliser
-            )
+            accuracies, losses = val_forward_pass(model, val_loader, criterion, device)
             if args.wandb:
                 wandb.log(
                     {
@@ -223,3 +219,7 @@ if __name__ == "__main__":
     # - learning_rate
     # - dataset_size
     # - batch_size
+
+    # TODO: add logging of model weights and gradients
+    # TODO: save state dict to disk
+    # TODO: add logging of prediction curve

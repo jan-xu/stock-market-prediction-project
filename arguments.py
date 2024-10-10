@@ -28,6 +28,7 @@ def parse_args():
     parser.add_argument('-l', '--look-back', type=int, default=DEFAULT_ARGS['look_back'], help='Look-back length')
     parser.add_argument('-ph', '--pred-horizon', type=int, default=DEFAULT_ARGS['pred_horizon'], help='Prediction horizon size')
     parser.add_argument('-hw', '--hidden-width', type=int, default=DEFAULT_ARGS['hidden_width'], help='Hidden width')
+    parser.add_argument('-rph', '--recurrent-pred-horizon', action='store_true', help='Toggle recurrent prediction horizon')
     parser.add_argument('--eda', action='store_true', help='Perform exploratory data analysis before experiment starts')
     parser.add_argument('--wandb', action='store_true', help='Log to wandb')
     parser.add_argument('--ignore-timestamp', action='store_true', help='Ignore timestamp in run name')
@@ -50,6 +51,10 @@ def parse_args():
     else:
         args.device = torch.device('cpu')
 
+    if args.recurrent_pred_horizon and args.pred_horizon == 1:
+        warn("Recurrent prediction horizon is only supported for pred_horizon > 1")
+        args.recurrent_pred_horizon = False
+
     print(f"Run configuration:")
     print(f"  - Project: {args.project}")
     print(f"  - Run name: {args.name}")
@@ -61,5 +66,6 @@ def parse_args():
     print(f"  - Look-back: {args.look_back}")
     print(f"  - Prediction horizon: {args.pred_horizon}")
     print(f"  - Hidden width: {args.hidden_width}")
+    print(f"  - Recurrent prediction horizon: {args.recurrent_pred_horizon}")
 
     return args
