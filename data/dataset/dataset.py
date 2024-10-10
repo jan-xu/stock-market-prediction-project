@@ -1,5 +1,6 @@
 from torch.utils.data import Dataset
 
+
 class TimeSeriesSliceDataset(Dataset):
     def __init__(self, data, train_length, target_length):
         """
@@ -18,4 +19,9 @@ class TimeSeriesSliceDataset(Dataset):
 
     def __getitem__(self, idx):
         # Get the slice starting at index `idx` of length `self.length`
-        return self.data[idx:idx + self.train_length], self.data[idx + self.train_length:idx + self.train_length + self.target_length]
+        return (
+            self.data[idx : idx + self.train_length],
+            self.data[
+                idx + self.train_length : idx + self.train_length + self.target_length
+            ],
+        )

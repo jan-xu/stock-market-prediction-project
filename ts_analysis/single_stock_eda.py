@@ -90,6 +90,20 @@ class EDA:
             ma_label = f"{column_label}_{w}-day-MA"
             self.data[ma_label] = column.rolling(window=w).mean()
 
+    def get_dist_params(self, data, dist_type="t"):
+        """Fits a distribution to the given data and returns the parameters.
+        Currently, only Student's t and Gaussian distributions are supported.
+
+        Args:
+            data (np.ndarray or pd.Series): Data to fit the distribution
+            dist_type (str): Distribution type (choices: "t" or "gaussian"). Default is "t".
+        """
+        assert dist_type in ["t", "gaussian"], f"Invalid distribution type: {dist_type}"
+        if dist_type == "t":
+            return t.fit(data.dropna())
+        elif dist_type == "gaussian":
+            return norm.fit(data.dropna())
+
     def _save_figures(
         self, fig, save_fig_name: str, save_fmts: List[str] = ["html", "png"]
     ) -> None:
@@ -361,7 +375,7 @@ class EDA:
         )
 
         # Fit Student's t distribution
-        t_params = t.fit(self.data[self.return_col].dropna())
+        t_params = self.get_dist_params(self.data[self.return_col], dist_type="t")
         t_dist = t(*t_params)
         x_fit = np.linspace(
             self.data[self.return_col].min(), self.data[self.return_col].max(), 100
@@ -382,7 +396,9 @@ class EDA:
         )
 
         # Fit Gaussian distribution
-        gaussian_params = norm.fit(self.data[self.return_col].dropna())
+        gaussian_params = self.get_dist_params(
+            self.data[self.return_col], dist_type="gaussian"
+        )
         gaussian_dist = norm(*gaussian_params)
 
         # Plot Gaussian distribution
