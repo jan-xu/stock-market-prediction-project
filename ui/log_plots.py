@@ -3,7 +3,7 @@ from pathlib import Path
 from ts_analysis import EDA
 
 
-def run_eda(
+def eda_plots(
     df,
     label,
     value_col,
@@ -14,7 +14,7 @@ def run_eda(
     run_folder=None,
 ):
     """
-    Run exploratory data analysis on the given time-series data.
+    Return plots from exploratory data analysis on the given time-series data.
 
     Parameters
     ----------
@@ -148,3 +148,36 @@ def run_eda(
         print(f"Date range: {eda.get_date_range()}\n")
 
     return logged_plots
+
+
+# def plot_pred_vs_gt(history, predictions, ground_truth, save_folder=None):
+#     """
+#     Plot the predictions against the ground truth.
+
+#     Parameters
+#     ----------
+#     history : np.ndarray
+#         The history of the time-series data.
+#     predictions : np.ndarray
+#         The predicted values of the time-series data.
+#     ground_truth : np.ndarray
+#         The ground truth values of the time-series data.
+#     save_folder : str, optional
+#         The folder to save the plot in. If None, the plot will only be shown, not saved.
+#         Default: None.
+#     """
+
+#     import matplotlib.pyplot as plt
+
+#     plt.figure(figsize=(12, 6))
+#     plt.plot(history, label="History", color="blue")
+#     plt.plot(range(len(history), len(history) + len(predictions)), predictions, label="Predictions", color="red")
+#     plt.plot(range(len(history), len(history) + len(ground_truth)), ground_truth, label="Ground Truth", color="green")
+#     plt.legend()
+#     plt.title("Predictions vs Ground Truth")
+#     plt.xlabel("Time")
+#     plt.ylabel("Value")
+#     if save_folder is not None:
+#         Path(save_folder).mkdir(parents=True, exist_ok=True)
+#         plt.savefig(f"{save_folder}/pred_vs_gt.png")
+#     plt.show()

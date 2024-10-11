@@ -5,7 +5,7 @@ import pandas as pd
 import yfinance as yf
 
 from data.database import DATABASE_PATH, StockDatabase
-from ui import run_eda
+from ui import eda_plots
 
 
 def save_to_database(ticker, data):
@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     # Plot the closing price
     if args.plot:
-        _, _ = run_eda(
+        _, _ = eda_plots(
             stock_data,
             label=ticker,
             value_col="Adj Close",
