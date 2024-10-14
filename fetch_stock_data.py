@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     # Plot the closing price
     if args.plot:
-        _, _ = eda_plots(
+        _ = eda_plots(
             stock_data,
             label=ticker,
             value_col="Adj Close",

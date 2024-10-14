@@ -1,6 +1,12 @@
+from itertools import cycle
 from pathlib import Path
 
+import plotly.express as px
+import plotly.graph_objects as go
+
 from ts_analysis import EDA
+
+COLORS = px.colors.qualitative.Plotly
 
 
 def eda_plots(
@@ -150,34 +156,129 @@ def eda_plots(
     return logged_plots
 
 
-# def plot_pred_vs_gt(history, predictions, ground_truth, save_folder=None):
-#     """
-#     Plot the predictions against the ground truth.
+def plot_pred_vs_gt(gt_data, pred_data, val_size, pred_horizon, var_type="Return"):
+    """
+    Plot the return predictions against the ground truth.
 
-#     Parameters
-#     ----------
-#     history : np.ndarray
-#         The history of the time-series data.
-#     predictions : np.ndarray
-#         The predicted values of the time-series data.
-#     ground_truth : np.ndarray
-#         The ground truth values of the time-series data.
-#     save_folder : str, optional
-#         The folder to save the plot in. If None, the plot will only be shown, not saved.
-#         Default: None.
-#     """
+    Parameters
+    ----------
+    gt_data : np.ndarray or torch.Tensor
+        The ground truth values of the time-series data.
+    pred_data : np.ndarray or torch.Tensor
+        The predicted values of the time-series data.
+    val_size : int
+        The size of the validation set.
+    pred_horizon : int
+        Prediction horizon size.
+    var_type : str, optional
+        The type of variable to plot. Default: "Return".
+    """
+    color_cycle = cycle(COLORS)
 
-#     import matplotlib.pyplot as plt
+    assert var_type in [
+        "Return",
+        "Stock Price",
+    ], "Variable type must be 'Return' or 'Stock Price'."
 
-#     plt.figure(figsize=(12, 6))
-#     plt.plot(history, label="History", color="blue")
-#     plt.plot(range(len(history), len(history) + len(predictions)), predictions, label="Predictions", color="red")
-#     plt.plot(range(len(history), len(history) + len(ground_truth)), ground_truth, label="Ground Truth", color="green")
-#     plt.legend()
-#     plt.title("Predictions vs Ground Truth")
-#     plt.xlabel("Time")
-#     plt.ylabel("Value")
-#     if save_folder is not None:
-#         Path(save_folder).mkdir(parents=True, exist_ok=True)
-#         plt.savefig(f"{save_folder}/pred_vs_gt.png")
-#     plt.show()
+    len_gt = gt_data.shape[0]
+    len_pred = pred_data.shape[0]
+    len_history = len_gt - val_size
+
+    gt_indices = list(range(-len_history, val_size))
+    next_day_pred_indices = list(range(0, len_pred))
+
+    next_day_fig = go.Figure()
+
+    next_day_fig.add_trace(
+        go.Scatter(
+            x=gt_indices,
+            y=gt_data[:, 0],
+            mode="lines",
+            name="Ground truth",
+            line=dict(color="black", width=2),
+        )
+    )
+
+    next_day_fig.add_trace(
+        go.Scatter(
+            x=next_day_pred_indices,
+            y=pred_data[:, 0, 0],
+            mode="lines",
+            name="Pred (next-day)",
+            line=dict(color="blue", width=2),
+        )
+    )
+
+    next_day_fig.update_layout(
+        title_text=f"Next-day prediction",
+        xaxis_title="Time index (negative: history)",
+        yaxis_title=var_type,
+        width=1200,
+        height=600,
+        showlegend=True,
+    )
+
+    if pred_horizon > 1:
+        multi_day_fig = go.Figure()
+
+        multi_day_fig.add_trace(
+            go.Scatter(
+                x=gt_indices[-(val_size + 1) :],
+                y=gt_data[-(val_size + 1) :, 0],
+                mode="lines",
+                name="Ground truth",
+                line=dict(color="black", width=4),
+            )
+        )
+
+        multi_day_fig.add_trace(
+            go.Scatter(
+                x=next_day_pred_indices,
+                y=pred_data[:, 0, 0],
+                mode="lines+markers",
+                name="Pred (next-day)",
+                opacity=0.8,
+                line=dict(color="blue", width=4),
+                marker=dict(color="blue", size=12, symbol="star"),
+            )
+        )
+
+        for i in range(len_pred):
+            color = next(color_cycle)
+
+            multi_day_indices = list(range(i, pred_horizon + i))
+            multi_day_fig.add_trace(
+                go.Scatter(
+                    x=multi_day_indices,
+                    y=pred_data[i, :, 0],
+                    mode="lines",
+                    name=f"Multi-day pred (start: index = {i})",
+                    line=dict(width=2, color=color),
+                    legendgroup=i,
+                )
+            )
+            # Additional line connected to the start of the existing line
+            multi_day_fig.add_trace(
+                go.Scatter(
+                    x=[i - 1, i],
+                    y=[gt_data[-(val_size + 1) + i, 0], pred_data[i, 0, 0]],
+                    mode="lines",
+                    opacity=0.5,
+                    line=dict(color=color, width=2, dash="dash"),
+                    showlegend=False,
+                    legendgroup=i,
+                )
+            )
+
+        multi_day_fig.update_layout(
+            title_text=f"Multi-day prediction analysis",
+            xaxis_title="Time index (negative: history)",
+            yaxis_title=var_type,
+            width=1200,
+            height=600,
+            showlegend=True,
+        )
+    else:
+        multi_day_fig = None
+
+    return next_day_fig, multi_day_fig

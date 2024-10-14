@@ -15,10 +15,21 @@ from data.dataset import (
     auto_time_series_cross_validation,
     get_number_of_splits,
 )
-from data.transforms import FeatureNormalisation, get_relative_change
+from data.transforms import (
+    FeatureNormalisation,
+    apply_relative_change,
+    get_relative_change,
+)
 from models import CNNLSTMModel, LSTMModel
 from toy import SyntheticStockData
-from ui import LocalLogger, LoggerHandler, UserPrompt, WandbLogger, eda_plots
+from ui import (
+    LocalLogger,
+    LoggerHandler,
+    UserPrompt,
+    WandbLogger,
+    eda_plots,
+    plot_pred_vs_gt,
+)
 
 np.random.seed(0)
 torch.manual_seed(0)
@@ -39,26 +50,76 @@ def train_epoch(model, train_loader, optimizer, criterion, device):
     return loss
 
 
-def val_forward_pass(model, val_loader, criterion, device, loggers):
+def val_forward_pass(
+    model,
+    val_dataset,
+    criterion,
+    device,
+    normaliser,
+    val_stock_price,
+    loggers,
+    val_args,
+):
+
+    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
 
     model.eval()
 
-    accuracies = []
     losses = []
+    accuracies = []
+    predictions = []
     for inputs, targets in val_loader:
         inputs, targets = inputs.to(device), targets.to(device)
 
         with torch.no_grad():
             pred = model(inputs, reset_hidden=True)
             loss = criterion(pred, targets)
+
             losses.append(loss.item())
             accuracies.append(
                 (torch.sum(pred.sign() == targets.sign()) / pred.numel()).item()
             )
+            predictions.append(pred)
 
     loggers.add_scalar("val/mean_accuracy_pct", np.mean(accuracies) * 100)
     loggers.add_scalar("val/mean_loss", np.mean(losses))
     loggers.add_scalar("val/validation_dataset_size", len(val_loader.dataset))
+
+    gt_return_data = normaliser.inverse(val_loader.dataset.data)
+    pred_return_data = normaliser.inverse(torch.cat(predictions, dim=0).cpu().numpy())
+
+    next_day_return_fig, multi_day_return_fig = plot_pred_vs_gt(
+        gt_return_data,
+        pred_return_data,
+        val_args.val_size,
+        val_args.pred_horizon,
+        var_type="Return",
+    )
+
+    loggers.add_plotly("val_plots/next_day_return_pred", next_day_return_fig)
+    if multi_day_return_fig is not None:
+        loggers.add_plotly("val_plots/multi_day_return_pred", multi_day_return_fig)
+
+    gt_price_data = np.expand_dims(val_stock_price, -1)
+    pred_price_data = np.expand_dims(
+        apply_relative_change(
+            pred_return_data[..., 0],
+            gt_price_data[val_args.look_back - 1 : -val_args.pred_horizon],
+        ),
+        -1,
+    )
+
+    next_day_price_fig, multi_day_price_fig = plot_pred_vs_gt(
+        gt_price_data,
+        pred_price_data,
+        val_args.val_size,
+        val_args.pred_horizon,
+        var_type="Stock Price",
+    )
+
+    loggers.add_plotly("val_plots/next_day_price_pred", next_day_price_fig)
+    if multi_day_price_fig is not None:
+        loggers.add_plotly("val_plots/multi_day_price_pred", multi_day_price_fig)
 
     return accuracies, losses
 
@@ -130,9 +191,11 @@ def main(args):
     data_array = normaliser.forward(data_array)  # Apply normalisation
 
     # Time-series cross-validation on dataset
-    n_splits = get_number_of_splits(data_array, look_back)
+    n_splits = get_number_of_splits(data_array, look_back, val_size=args.val_size)
     epochs_per_split = epochs // n_splits
-    ts_cv_data = auto_time_series_cross_validation(data_array, args)
+    ts_cv_data = auto_time_series_cross_validation(
+        data_array, args, return_indices=True
+    )
 
     ########################
     # MODEL INITIALISATION #
@@ -169,6 +232,10 @@ def main(args):
     # TRAINING STAGE #
     ##################
 
+    # Get logging frequencies
+    train_log_freq = epochs // args.train_logs
+    val_log_freq = epochs // args.val_logs
+
     # Initialise time-series cross-validation iterator
     ts_cv_iter = iter(ts_cv_data)
 
@@ -178,17 +245,11 @@ def main(args):
             if (epoch - 1) % epochs_per_split == 0 and (
                 epoch - 1
             ) < n_splits * epochs_per_split:
-                train_data, val_data = next(ts_cv_iter)
+                (_, val_idx), (train_data, val_data) = next(ts_cv_iter)
                 train_data = torch.tensor(train_data, dtype=torch.float32)
-                val_data = torch.tensor(val_data, dtype=torch.float32)
-
                 train_dataset = TimeSeriesSliceDataset(
                     train_data, look_back, pred_horizon
                 )
-                val_dataset = TimeSeriesSliceDataset(val_data, look_back, pred_horizon)
-                # print(
-                #     f"Initialising new training split with {len(train_dataset)} training samples and {len(val_dataset)} validation samples."
-                # )
                 train_loader = DataLoader(
                     train_dataset, batch_size=batch_size, shuffle=True
                 )
@@ -196,7 +257,7 @@ def main(args):
             loss = train_epoch(model, train_loader, optimizer, criterion, device)
             scheduler.step()
 
-            if epoch % 50 == 0:
+            if epoch % train_log_freq == 0:
                 loggers.add_scalar("train/epoch", epoch)
                 loggers.add_scalar("train/loss", loss.item())
                 loggers.add_scalar("train/lr", optimizer.param_groups[0]["lr"])
@@ -206,12 +267,23 @@ def main(args):
                 loggers.add_scalar("train/train_dataset_size", len(train_dataset))
                 loggers.push_scalars(step=epoch)
 
-            if epoch % 100 == 0:
-                val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
+            if epoch % val_log_freq == 0:
+                val_data = torch.tensor(val_data, dtype=torch.float32)
+                val_dataset = TimeSeriesSliceDataset(val_data, look_back, pred_horizon)
+                val_stock_price = df.loc[val_idx, "Stock Price"].to_numpy()
+
                 accuracies, losses = val_forward_pass(
-                    model, val_loader, criterion, device, loggers
+                    model,
+                    val_dataset,
+                    criterion,
+                    device,
+                    normaliser,
+                    val_stock_price,
+                    loggers,
+                    val_args=args,
                 )
                 loggers.push_scalars(step=epoch)
+                loggers.push_plotly(step=epoch)
                 print(
                     f"\nAccuracies: {''.join(['+' if a > 0.5 else '-' for a in accuracies])}"
                 )
@@ -229,9 +301,5 @@ if __name__ == "__main__":
 
     main(args)
 
-    # TODO: create a logger class that keeps track of all scalar values to log to Wandb
-
     # TODO: add logging of model weights and gradients
     # TODO: save state dict to disk
-    # TODO: add logging of prediction curve
-    # TODO: log actual de-normalised prediction values

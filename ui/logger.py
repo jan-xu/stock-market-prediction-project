@@ -48,6 +48,7 @@ class LocalLogger(Logger):
     def log_plotly(self, figs: Dict[str, Figure], step: int):
         print(f"\nSaving figures at step {step}:")
         for name, fig in figs.items():
+            name = name.replace("/", "_")
             print(f"  - {name}_{step}.html/png")
             fig.write_html(f"{self.run_folder}/figures/html/{name}_{step}.html")
             fig.write_image(f"{self.run_folder}/figures/png/{name}_{step}.png")
@@ -109,10 +110,14 @@ class LoggerHandler:
                 if len(name) > logger.longest_scalar_name:
                     logger.longest_scalar_name = len(name)
 
-    def add_plot(self, name: str, fig: Figure):
+    def add_plotly(self, name: str, fig: Figure):
         """
-        Add plot to the accumulated plots to be logged.
+        Add plot to the accumulated Plotly plots to be logged.
         """
+        if not isinstance(fig, Figure):
+            warn(f"Figure {name} is not a Plotly figure; returning without adding.")
+            return
+
         if name in self.accumulated_figs:
             warn(f"Overwriting figure {name}!")
         self.accumulated_figs[name] = fig
