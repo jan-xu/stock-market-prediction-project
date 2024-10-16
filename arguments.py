@@ -6,12 +6,13 @@ import torch
 
 DEFAULT_ARGS = {
     "architecture": "CNN-LSTM",
-    "ticker": "SP500",
+    "ticker": "AAPL",
     "epochs": 1000,
     "batch_size": 64,
     "look_back": 64,
     "pred_horizon": 1,
     "hidden_width": 128,
+    "dropout": 0.0,
     "val_size": 10,
     "train_logs": 50,
     "val_logs": 10,
@@ -98,6 +99,13 @@ def parse_args():
         help="Hidden width",
     )
     parser.add_argument(
+        "-do",
+        "--dropout",
+        type=float,
+        default=DEFAULT_ARGS["dropout"],
+        help="Drop-out rate",
+    )
+    parser.add_argument(
         "-vs",
         "--val-size",
         type=int,
@@ -167,6 +175,7 @@ def parse_args():
     print(f"  - Look-back: {args.look_back}")
     print(f"  - Prediction horizon: {args.pred_horizon}")
     print(f"  - Hidden width: {args.hidden_width}")
+    print(f"  - Drop-out rate: {args.dropout}")
     print(f"  - Validation set size: {args.val_size}")
     print(f"  - # of train logs: {args.train_logs}")
     print(f"  - # of validation logs: {args.val_logs}")

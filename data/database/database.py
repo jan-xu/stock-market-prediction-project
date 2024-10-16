@@ -72,7 +72,11 @@ class StockDatabase:
 
         if csv_file.exists():
             existing_data = pd.read_csv(csv_file, index_col=0, parse_dates=True)
-            combined_data = pd.concat([existing_data, data]).drop_duplicates()
+            combined_data = pd.concat([existing_data, data])
+            combined_data = combined_data[
+                ~combined_data.index.duplicated(keep="first")
+            ]  # remove duplicates
+            combined_data = combined_data.sort_index()  # sort data by date
             combined_data.to_csv(csv_file)
         else:
             data.to_csv(csv_file)
