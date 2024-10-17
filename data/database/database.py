@@ -182,6 +182,18 @@ class StockDatabase:
         else:
             return metadata_dict
 
+    def get_pandas_dataframe(self, ticker_symbol):
+        """
+        Retrieve the stock data for a given ticker symbol as a Pandas DataFrame.
+        """
+        self.cursor.execute(
+            "SELECT csv_data_path FROM stock_metadata WHERE ticker_symbol = ?",
+            (ticker_symbol,),
+        )
+        csv_path = self.cursor.fetchone()[0]
+        data = pd.read_csv(csv_path, index_col=0, parse_dates=True)
+        return data
+
 
 if __name__ == "__main__":
 

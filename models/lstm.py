@@ -50,7 +50,11 @@ class LSTMModel(nn.Module):
         self._assert_pred_horizon()
 
         self.lstm = nn.LSTM(
-            input_size, hidden_layer_size, dropout=dropout, batch_first=True
+            input_size,
+            hidden_layer_size,
+            num_layers=2,
+            dropout=dropout,
+            batch_first=True,
         )
         self.linear = nn.Linear(
             hidden_layer_size,

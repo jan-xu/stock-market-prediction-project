@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 from pathlib import Path, PosixPath
-from typing import Any, Dict, List, Union
+from typing import Any, Callable, Dict, List, Union
 from warnings import warn
 
+import numpy as np
 from plotly.graph_objs import Figure
 
 import wandb
@@ -62,6 +63,60 @@ class LoggerHandler:
         self.accumulated_figs = {}
         self.latest_step = 0
 
+    def log_apply_scalars(self, name: str, func: Callable, *args, reduce_before=True):
+        """
+        Apply a function to the logged (reduced) scalars and log to a new scalar name.
+        E.g., if scalars "scalar1" and "scalar2" have already been logged, we can apply
+        a function such as `lambda x, y: x + y` to get a new scalar "scalar1_plus_scalar2".
+        In this example, `name` is expected to be the new scalar name, `func` is expected
+        to be a callable of the same number of arguments as the number of scalar names to
+        be provided in args. `reduce_before` is a boolean flag to indicate whether to
+        apply the reduction of scalars (averaging) before applying the function.
+
+        Note that if `reduce_before` is set to False, the function should expect a list
+        input, as the scalars will not have been reduced to a single value.
+        """
+        number_of_args = len(args)
+        number_of_params = func.__code__.co_argcount
+        if number_of_args != number_of_params:
+            raise ValueError(
+                f"Number of arguments ({number_of_args}) does not match number of parameters ({number_of_params})!"
+            )
+
+        if reduce_before:
+            scalars = self.reduce_scalars(self.accumulated_scalars)
+        else:
+            scalars = self.accumulated_scalars
+
+        for scalar_name in args:
+            if scalar_name not in scalars:
+                raise ValueError(
+                    f"Scalar {scalar_name} not found among logged scalars."
+                )
+
+        new_scalar = func(*[scalars[scalar_name] for scalar_name in args])
+        self.add_scalar(name, new_scalar)
+
+    def reduce_scalars(
+        self, scalars: Dict[str, Union[List[Any], Any]], inplace: bool = False
+    ):
+        """
+        Reduce the accumulated scalars to a single scalar value.
+        """
+        if inplace:
+            reduced_scalars = scalars
+        else:
+            reduced_scalars = {}
+
+        for name, scalar in scalars.items():
+            if isinstance(scalar, List) and len(scalar) > 0:
+                reduced_scalars[name] = sum(scalar) / len(scalar)
+            else:
+                reduced_scalars[name] = scalar
+
+        if not inplace:
+            return reduced_scalars
+
     def push_scalars(self, step: int):
         """
         Push the accumulated scalars to the loggers.
@@ -70,6 +125,7 @@ class LoggerHandler:
             warn(f"Step {step} is less than the latest step {self.latest_step}!")
 
         if self.accumulated_scalars:
+            self.reduce_scalars(self.accumulated_scalars, inplace=True)
             for logger in self.loggers:
                 logger.log_scalars(self.accumulated_scalars, step)
             self.accumulated_scalars = {}
@@ -101,9 +157,10 @@ class LoggerHandler:
         """
         Add scalar to the accumulated scalars to be logged.
         """
-        if name in self.accumulated_scalars:
-            warn(f"Overwriting scalar value {scalar}!")
-        self.accumulated_scalars[name] = scalar
+        if name in self.accumulated_scalars:  # append to list
+            self.accumulated_scalars[name].append(scalar)
+        else:
+            self.accumulated_scalars[name] = [scalar]
 
         for logger in self.loggers:
             if isinstance(logger, LocalLogger):
