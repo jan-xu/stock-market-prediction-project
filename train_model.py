@@ -289,7 +289,7 @@ def main(args):
         database = StockDatabase(DATABASE_PATH)
         metadata = database.get_metadata(
             ticker_symbol=stock_mapping(ticker), printable=True
-        )
+        )  # If ticker is missing, use fetch_stock_data.py to add stock data to database
         print(f"Metadata for ticker {ticker}:\n{metadata}")
         df = database.get_pandas_dataframe(ticker_symbol=stock_mapping(ticker))
         value_col_name = "Adj Close"
