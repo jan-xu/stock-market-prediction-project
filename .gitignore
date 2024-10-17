@@ -167,3 +167,4 @@ wandb/
 fig*/
 notebooks/
 old*/
+legacy/
