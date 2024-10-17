@@ -1,5 +1,6 @@
-from typing import List
 from numbers import Number
+from typing import List
+
 
 class FeatureNormalisation:
 
@@ -26,7 +27,9 @@ class FeatureNormalisation:
         return self._dim
 
     def __call__(self, x):
-        print(f"Use .forward() or .inverse() instead of calling {self.__class__.__name__} directly.")
+        print(
+            f"Use .forward() or .inverse() instead of calling {self.__class__.__name__} directly."
+        )
         return x
 
     def forward(self, x):
@@ -39,8 +42,14 @@ class FeatureNormalisation:
         if self.dim == 1:
             return f"FeatureNormalisation(mean={self.mean:.6f}, std={self.std:.6f})"
         else:
-            printable_mean = [round(m.item(), 3) if hasattr(m, "item") else round(m, 3) for m in self.mean]
-            printable_std = [round(s.item(), 3) if hasattr(s, "item") else round(s, 3) for s in self.std]
+            printable_mean = [
+                round(m.item(), 3) if hasattr(m, "item") else round(m, 3)
+                for m in self.mean
+            ]
+            printable_std = [
+                round(s.item(), 3) if hasattr(s, "item") else round(s, 3)
+                for s in self.std
+            ]
             return f"FeatureNormalisation(mean={printable_mean}, std={printable_std})"
 
     def __repr__(self):

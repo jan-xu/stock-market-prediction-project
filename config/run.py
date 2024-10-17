@@ -5,13 +5,14 @@ if not RUN_SUPER_FOLDER.exists():
     RUN_SUPER_FOLDER.mkdir()
 
 SUBFOLDERS = [
-    "models", # .pt model files
-    "logs", # console printout logs
-    "data", # misc data files
-    "figures", # figures
-    "figures/png", # png figures
-    "figures/html", # html figures
+    "models",  # .pt model files
+    "logs",  # console printout logs
+    "data",  # misc data files
+    "figures",  # figures
+    "figures/png",  # png figures
+    "figures/html",  # html figures
 ]
+
 
 def create_run_folder(run_name):
 
@@ -26,4 +27,3 @@ def create_run_folder(run_name):
         subfolder_path.mkdir()
 
     return run_folder
-

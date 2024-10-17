@@ -1,8 +1,9 @@
-from warnings import warn
-import numpy as np
 import argparse
-import pandas as pd
+from warnings import warn
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 
 class SyntheticStockData:
@@ -78,7 +79,9 @@ class SyntheticStockData:
         Checks if the object has been called to generate synthetic stock price data.
         """
         if self.P_t is None:
-            warn("No synthetic stock price data generated yet. Please call the object first.")
+            warn(
+                "No synthetic stock price data generated yet. Please call the object first."
+            )
             return False
         return True
 
@@ -120,7 +123,10 @@ class SyntheticStockData:
         fig = plt.figure(figsize=(12, 6))
         plt.plot(self.t, self.P_t, label="Stock Price")
         plt.suptitle("Synthetic Stock Price Curve", fontsize=16)
-        plt.title(f"P0={self.P0}, mu={self.mu}, sigma={self.sigma}, A={self.A}, f={self.f:.6f}, phi={self.phi}, T={self.T}", fontsize=12)
+        plt.title(
+            f"P0={self.P0}, mu={self.mu}, sigma={self.sigma}, A={self.A}, f={self.f:.6f}, phi={self.phi}, T={self.T}",
+            fontsize=12,
+        )
         plt.xlabel("Time (days)")
         plt.ylabel("Stock Price")
         if save_fig_name is not None:
@@ -134,9 +140,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate synthetic stock price data.")
     parser.add_argument("--P0", type=float, default=100, help="Initial stock price")
     parser.add_argument("--mu", type=float, default=0.001, help="Drift (trend)")
-    parser.add_argument("--sigma", type=float, default=0.02, help="Volatility (randomness)")
-    parser.add_argument("--A", type=float, default=0.05, help="Amplitude of seasonal component")
-    parser.add_argument("--f", type=float, default=1 / 252, help="Frequency of seasonal component")
+    parser.add_argument(
+        "--sigma", type=float, default=0.02, help="Volatility (randomness)"
+    )
+    parser.add_argument(
+        "--A", type=float, default=0.05, help="Amplitude of seasonal component"
+    )
+    parser.add_argument(
+        "--f", type=float, default=1 / 252, help="Frequency of seasonal component"
+    )
     parser.add_argument("--phi", type=float, default=0, help="Phase shift")
     parser.add_argument("--T", type=int, default=2520, help="Time horizon")
     parser.add_argument("--seed", type=int, default=0, help="Random seed")

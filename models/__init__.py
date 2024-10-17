@@ -1,1 +1,1 @@
-from .lstm import LSTMModel, CNNLSTMModel
+from .lstm import CNNLSTMModel, LSTMModel
