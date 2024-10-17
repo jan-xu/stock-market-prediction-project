@@ -1,25 +1,26 @@
 name: Code Linting
 
+# When to run the workflow: on push (commit) or pull request to the main branch.
 on:
-  pull_request:
+  push:
     branches:
       - main
       - dev_init
-  push:
+  pull_request:
     branches:
       - main
       - dev_init
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # The environment to run tests (Ubuntu in this case).
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v3
         with:
           python-version: '3.12.3'
 
