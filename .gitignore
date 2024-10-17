@@ -162,9 +162,14 @@ cython_debug/
 #.idea/
 
 # Project configuration
+tmp/
 runs/
 wandb/
 fig*/
 notebooks/
 old*/
 legacy/
+
+# Database files
+data/database/stock_data/*
+data/database/stock_data.db
