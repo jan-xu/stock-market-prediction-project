@@ -73,7 +73,7 @@ def train_epoch(model, train_loader, optimizer, criterion, device, loggers):
 
 def val_forward_pass(
     model,
-    val_dataset,
+    val_data,
     criterion,
     device,
     normaliser,
@@ -81,7 +81,11 @@ def val_forward_pass(
     loggers,
     val_args,
 ):
-    # Initialise dataloader
+    # Initialise validation dataset and dataloader
+    look_back = val_args.look_back
+    pred_horizon = val_args.pred_horizon
+
+    val_dataset = TimeSeriesSliceDataset(val_data, look_back, pred_horizon)
     val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
 
     # Get ground truth data for plotting
@@ -137,14 +141,106 @@ def val_forward_pass(
         "val/loss",
         "val/baseline_loss",
     )
+
+    # Next-day predictions only
+    if pred_horizon > 1:
+        next_day_val_dataset = TimeSeriesSliceDataset(val_data, look_back, 1)
+        next_day_val_loader = DataLoader(
+            next_day_val_dataset, batch_size=1, shuffle=False
+        )
+
+        next_day_return_predictions = []
+        next_day_stock_price_predictions = []
+        for i, (inputs, targets) in enumerate(next_day_val_loader):
+            inputs, targets = inputs.to(device), targets.to(device)
+
+            with torch.no_grad():
+                pred = model(inputs, reset_hidden=True)
+                pred = pred[:, :1]  # Select only next-day prediction
+                loss = criterion(pred, targets)
+                baseline_loss = criterion(torch.zeros_like(pred), targets)
+                accuracy = torch.sum(pred.sign() == targets.sign()) / pred.numel()
+
+                loggers.add_scalar("val_next_day/loss", loss.item())
+                loggers.add_scalar("val_next_day/baseline_loss", baseline_loss.item())
+                loggers.add_scalar("val_next_day/accuracy_pct", accuracy.item() * 100)
+
+                pred_return = normaliser.inverse(pred)
+                next_day_return_predictions.append(pred_return)
+
+                prev_stock_price = val_stock_price[val_args.look_back - 1 + i]
+                real_stock_price = val_stock_price[
+                    val_args.look_back
+                    + i : val_args.look_back
+                    + i
+                    + val_args.pred_horizon
+                ]
+                real_stock_price = (
+                    torch.tensor(real_stock_price, device=device)
+                    .unsqueeze(0)
+                    .unsqueeze(-1)
+                )
+
+                pred_stock_price = apply_relative_change(
+                    pred_return[..., 0], prev_stock_price
+                ).unsqueeze(-1)
+                next_day_stock_price_predictions.append(pred_stock_price)
+
+                rmse = torch.sqrt(criterion(pred_stock_price, real_stock_price))
+                mae = torch.mean(torch.abs(pred_stock_price - real_stock_price))
+                mape = torch.mean(
+                    torch.abs(pred_stock_price - real_stock_price) / real_stock_price
+                )
+
+                loggers.add_scalar("val_next_day/stock_price_rmse", rmse.item())
+                loggers.add_scalar("val_next_day/stock_price_mae", mae.item())
+                loggers.add_scalar("val_next_day/stock_price_mape", mape.item() * 100)
+
+        loggers.log_apply_scalars(
+            "val_next_day/loss_gain",
+            lambda loss, baseline_loss: max(loss, 1e-8) / max(baseline_loss, 1e-8) - 1,
+            "val_next_day/loss",
+            "val_next_day/baseline_loss",
+        )
+    else:
+        loggers.log_apply_scalars("val_next_day/loss", lambda x: x, "val/loss")
+        loggers.log_apply_scalars(
+            "val_next_day/baseline_loss", lambda x: x, "val/baseline_loss"
+        )
+        loggers.log_apply_scalars(
+            "val_next_day/accuracy_pct", lambda x: x, "val/accuracy_pct"
+        )
+        loggers.log_apply_scalars(
+            "val_next_day/stock_price_rmse", lambda x: x, "val/stock_price_rmse"
+        )
+        loggers.log_apply_scalars(
+            "val_next_day/stock_price_mae", lambda x: x, "val/stock_price_mae"
+        )
+        loggers.log_apply_scalars(
+            "val_next_day/stock_price_mape", lambda x: x, "val/stock_price_mape"
+        )
+        loggers.log_apply_scalars(
+            "val_next_day/loss_gain", lambda x: x, "val/loss_gain"
+        )
+        next_day_return_predictions = return_predictions
+        next_day_stock_price_predictions = stock_price_predictions
+
     loggers.add_scalar("val/validation_dataset_size", len(val_loader.dataset))
 
     pred_return_data = torch.cat(return_predictions, dim=0).cpu().numpy()
     pred_price_data = torch.cat(stock_price_predictions, dim=0).cpu().numpy()
 
+    next_day_pred_return_data = (
+        torch.cat(next_day_return_predictions, dim=0).cpu().numpy()
+    )
+    next_day_pred_price_data = (
+        torch.cat(next_day_stock_price_predictions, dim=0).cpu().numpy()
+    )
+
     next_day_return_fig, multi_day_return_fig = plot_pred_vs_gt(
         gt_return_data,
         pred_return_data,
+        next_day_pred_return_data,
         val_args.val_size,
         val_args.pred_horizon,
         var_type="Return",
@@ -157,6 +253,7 @@ def val_forward_pass(
     next_day_price_fig, multi_day_price_fig = plot_pred_vs_gt(
         gt_price_data,
         pred_price_data,
+        next_day_pred_price_data,
         val_args.val_size,
         val_args.pred_horizon,
         var_type="Stock Price",
@@ -312,14 +409,11 @@ def main(args):
 
             if epoch % val_log_freq == 0:
                 val_data = torch.tensor(val_data, dtype=torch.float32)
-                val_dataset = TimeSeriesSliceDataset(
-                    val_data, look_back, pred_horizon
-                )  # TODO: move this within val_forward_pass so we can run next-day predictions
                 val_stock_price = df.iloc[val_idx]["Adj Close"].to_numpy()
 
                 val_forward_pass(
                     model,
-                    val_dataset,
+                    val_data,
                     criterion,
                     device,
                     normaliser,

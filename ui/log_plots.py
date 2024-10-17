@@ -74,7 +74,9 @@ def eda_plots(
     return logged_plots
 
 
-def plot_pred_vs_gt(gt_data, pred_data, val_size, pred_horizon, var_type="Return"):
+def plot_pred_vs_gt(
+    gt_data, pred_data, next_day_pred_data, val_size, pred_horizon, var_type="Return"
+):
     """
     Plot the return predictions against the ground truth.
 
@@ -83,7 +85,9 @@ def plot_pred_vs_gt(gt_data, pred_data, val_size, pred_horizon, var_type="Return
     gt_data : np.ndarray or torch.Tensor
         The ground truth values of the time-series data.
     pred_data : np.ndarray or torch.Tensor
-        The predicted values of the time-series data.
+        The predicted values of the (multi-day) time-series data.
+    next_day_pred_data : np.ndarray or torch.Tensor
+        The predicted values of the (next-day) time-series data.
     val_size : int
         The size of the validation set.
     pred_horizon : int
@@ -100,10 +104,12 @@ def plot_pred_vs_gt(gt_data, pred_data, val_size, pred_horizon, var_type="Return
 
     len_gt = gt_data.shape[0]
     len_pred = pred_data.shape[0]
+    len_next_day_pred = next_day_pred_data.shape[0]
     len_history = len_gt - val_size
 
     gt_indices = list(range(-len_history, val_size))
-    next_day_pred_indices = list(range(0, len_pred))
+    next_day_pred_indices = list(range(0, len_next_day_pred))
+    multi_day_fig_next_day_pred_indices = list(range(0, len_pred))
 
     next_day_fig = go.Figure()
 
@@ -120,7 +126,7 @@ def plot_pred_vs_gt(gt_data, pred_data, val_size, pred_horizon, var_type="Return
     next_day_fig.add_trace(
         go.Scatter(
             x=next_day_pred_indices,
-            y=pred_data[:, 0, 0],
+            y=next_day_pred_data[:, 0, 0],
             mode="lines",
             name="Pred (next-day)",
             line=dict(color="blue", width=2),
@@ -151,7 +157,7 @@ def plot_pred_vs_gt(gt_data, pred_data, val_size, pred_horizon, var_type="Return
 
         multi_day_fig.add_trace(
             go.Scatter(
-                x=next_day_pred_indices,
+                x=multi_day_fig_next_day_pred_indices,
                 y=pred_data[:, 0, 0],
                 mode="lines+markers",
                 name="Pred (next-day)",

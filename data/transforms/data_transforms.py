@@ -1,24 +1,31 @@
-import torch
-import numpy as np
-import pandas as pd
-
 from typing import Union
 
-# TODO: unify typings for NumPy, Pandas and Torch data structures
+import numpy as np
+import pandas as pd
+import torch
 
-def get_relative_change(data: Union[pd.DataFrame, pd.Series, np.ndarray]) -> Union[pd.DataFrame, pd.Series]:
+# TODO: unify typings for NumPy, Pandas and Torch data types
+
+
+def get_relative_change(
+    data: Union[pd.DataFrame, pd.Series, np.ndarray]
+) -> Union[pd.DataFrame, pd.Series]:
     """
     Calculate the relative change of a pandas DataFrame / Series or NumPy array.
     """
     if isinstance(data, np.ndarray):
-        return np.diff(data, axis=0, prepend=data[:1]) / np.vstack([np.ones(data[:1].shape), data[:-1]])
+        return np.diff(data, axis=0, prepend=data[:1]) / np.vstack(
+            [np.ones(data[:1].shape), data[:-1]]
+        )
     elif isinstance(data, pd.Series) or isinstance(data, pd.DataFrame):
-        return data.pct_change().fillna(0.)
+        return data.pct_change().fillna(0.0)
     else:
         raise ValueError("Data must be a pandas DataFrame / Series or NumPy array.")
 
 
-def apply_relative_change(relative_change: Union[np.ndarray, torch.Tensor], start_value):
+def apply_relative_change(
+    relative_change: Union[np.ndarray, torch.Tensor], start_value
+):
     """
     Apply the relative change to a starting value. Assume the relative change dimension is the last axis.
     """
