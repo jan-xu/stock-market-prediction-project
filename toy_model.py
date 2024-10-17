@@ -35,19 +35,40 @@ np.random.seed(0)
 torch.manual_seed(0)
 
 
-def train_epoch(model, train_loader, optimizer, criterion, device):
+def train_epoch(model, train_loader, optimizer, criterion, device, loggers):
 
     model.train()
 
+    epoch_loss = 0
+    epoch_baseline_loss = 0
+    epoch_accuracy = 0
+
     for inputs, targets in train_loader:
+        batch_size = inputs.shape[0]
+
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
         pred = model(inputs, reset_hidden=True)
+
         loss = criterion(pred, targets)
         loss.backward()
         optimizer.step()
 
-    return loss
+        # Auxiliary / monitoring metrics
+        baseline_loss = criterion(torch.zeros_like(pred), targets)
+        accuracy = torch.sum(pred.sign() == targets.sign()) / pred.numel()
+
+        epoch_loss += loss.item() * batch_size
+        epoch_baseline_loss += baseline_loss.item() * batch_size
+        epoch_accuracy += accuracy.item() * batch_size
+
+    N = len(train_loader.dataset)
+    loggers.add_scalar("train/loss", epoch_loss / N)
+    loggers.add_scalar("train/baseline_loss", epoch_baseline_loss / N)
+    loggers.add_scalar("train/accuracy_pct", epoch_accuracy / N * 100)
+    loggers.add_scalar(
+        "train/loss_gain", max(epoch_loss, 1e-8) / max(epoch_baseline_loss, 1e-8) - 1
+    )
 
 
 def val_forward_pass(
@@ -60,33 +81,66 @@ def val_forward_pass(
     loggers,
     val_args,
 ):
-
+    # Initialise dataloader
     val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
+
+    # Get ground truth data for plotting
+    gt_return_data = normaliser.inverse(val_loader.dataset.data)
+    gt_price_data = np.expand_dims(val_stock_price, -1)
 
     model.eval()
 
-    losses = []
-    accuracies = []
-    predictions = []
-    for inputs, targets in val_loader:
+    return_predictions = []
+    stock_price_predictions = []
+    for i, (inputs, targets) in enumerate(val_loader):
         inputs, targets = inputs.to(device), targets.to(device)
 
         with torch.no_grad():
             pred = model(inputs, reset_hidden=True)
             loss = criterion(pred, targets)
+            baseline_loss = criterion(torch.zeros_like(pred), targets)
+            accuracy = torch.sum(pred.sign() == targets.sign()) / pred.numel()
 
-            losses.append(loss.item())
-            accuracies.append(
-                (torch.sum(pred.sign() == targets.sign()) / pred.numel()).item()
+            loggers.add_scalar("val/loss", loss.item())
+            loggers.add_scalar("val/baseline_loss", baseline_loss.item())
+            loggers.add_scalar("val/accuracy_pct", accuracy.item() * 100)
+
+            pred_return = normaliser.inverse(pred)
+            return_predictions.append(pred_return)
+
+            prev_stock_price = val_stock_price[val_args.look_back - 1 + i]
+            real_stock_price = val_stock_price[
+                val_args.look_back + i : val_args.look_back + i + val_args.pred_horizon
+            ]
+            real_stock_price = (
+                torch.tensor(real_stock_price, device=device).unsqueeze(0).unsqueeze(-1)
             )
-            predictions.append(pred)
 
-    loggers.add_scalar("val/mean_accuracy_pct", np.mean(accuracies) * 100)
-    loggers.add_scalar("val/mean_loss", np.mean(losses))
+            pred_stock_price = apply_relative_change(
+                pred_return[..., 0], prev_stock_price
+            ).unsqueeze(-1)
+            stock_price_predictions.append(pred_stock_price)
+
+            rmse = torch.sqrt(criterion(pred_stock_price, real_stock_price))
+            mae = torch.mean(torch.abs(pred_stock_price - real_stock_price))
+            mape = torch.mean(
+                torch.abs(pred_stock_price - real_stock_price) / real_stock_price
+            )
+
+            loggers.add_scalar("val/stock_price_rmse", rmse.item())
+            loggers.add_scalar("val/stock_price_mae", mae.item())
+            loggers.add_scalar("val/stock_price_mape", mape.item() * 100)
+
+    loggers.log_apply_scalars(
+        "val/loss_gain",
+        lambda loss, baseline_loss: max(loss, 1e-8) / max(baseline_loss, 1e-8) - 1,
+        "val/loss",
+        "val/baseline_loss",
+    )
     loggers.add_scalar("val/validation_dataset_size", len(val_loader.dataset))
 
-    gt_return_data = normaliser.inverse(val_loader.dataset.data)
-    pred_return_data = normaliser.inverse(torch.cat(predictions, dim=0).cpu().numpy())
+    pred_return_data = torch.cat(return_predictions, dim=0).cpu().numpy()
+    pred_price_data = torch.cat(stock_price_predictions, dim=0).cpu().numpy()
 
     next_day_return_fig, multi_day_return_fig = plot_pred_vs_gt(
         gt_return_data,
@@ -100,15 +154,6 @@ def val_forward_pass(
     if multi_day_return_fig is not None:
         loggers.add_plotly("val_plots/multi_day_return_pred", multi_day_return_fig)
 
-    gt_price_data = np.expand_dims(val_stock_price, -1)
-    pred_price_data = np.expand_dims(
-        apply_relative_change(
-            pred_return_data[..., 0],
-            gt_price_data[val_args.look_back - 1 : -val_args.pred_horizon],
-        ),
-        -1,
-    )
-
     next_day_price_fig, multi_day_price_fig = plot_pred_vs_gt(
         gt_price_data,
         pred_price_data,
@@ -120,8 +165,6 @@ def val_forward_pass(
     loggers.add_plotly("val_plots/next_day_price_pred", next_day_price_fig)
     if multi_day_price_fig is not None:
         loggers.add_plotly("val_plots/multi_day_price_pred", multi_day_price_fig)
-
-    return accuracies, losses
 
 
 def main(args):
@@ -135,6 +178,7 @@ def main(args):
     look_back = args.look_back
     pred_horizon = args.pred_horizon
     hidden_width = args.hidden_width
+    dropout = args.dropout
     recurrent_pred_horizon = args.recurrent_pred_horizon
 
     loggers = LoggerHandler(
@@ -157,25 +201,15 @@ def main(args):
             label="SYN_DATA",
             value_col="Stock Price",
             add_ma=True,
-            run_folder=run_folder,
+        )
+        for plot_name, fig in logged_plots.items():
+            loggers.add_plotly(f"eda_plot/{plot_name}", fig)
+        loggers.push_plotly(step=0)
+        print(
+            f"Logged plots in {run_folder}/figures: \n-> {'\n-> '.join(logged_plots.keys())}\n"
         )
         prompt_answer = UserPrompt.prompt_continue()
         prompt_answer()
-        if args.wandb:
-            # TODO: See if we can simplify this
-            FIGURE_LIST = [
-                wandb.Html(str(html_plot))
-                for html_plot in logged_plots
-                if html_plot.endswith(".html")
-            ]
-            FIGURE_COLUMNS = [
-                Path(html_plot).stem
-                for html_plot in logged_plots
-                if html_plot.endswith(".html")
-            ]
-            FIGURE_TABLE = wandb.Table(columns=FIGURE_COLUMNS)
-            FIGURE_TABLE.add_data(*FIGURE_LIST)
-            wandb.log({"data_analysis": FIGURE_TABLE}, step=0)
 
     # Feature engineering
     df["Return"] = get_relative_change(df["Stock Price"])
@@ -209,6 +243,7 @@ def main(args):
             input_size=K,
             hidden_layer_size=hidden_width,
             pred_horizon=pred_horizon,
+            dropout=dropout,
             recurrent_pred_horizon=recurrent_pred_horizon,
         ).to(
             device
@@ -219,6 +254,7 @@ def main(args):
             hidden_layer_size=hidden_width,
             conv_channels=32,
             pred_horizon=pred_horizon,
+            dropout=dropout,
             recurrent_pred_horizon=recurrent_pred_horizon,
         ).to(device)
 
@@ -235,6 +271,9 @@ def main(args):
     # Get logging frequencies
     train_log_freq = epochs // args.train_logs
     val_log_freq = epochs // args.val_logs
+
+    if args.wandb:
+        wandb.watch(model, log="all", log_freq=train_log_freq)
 
     # Initialise time-series cross-validation iterator
     ts_cv_iter = iter(ts_cv_data)
@@ -254,12 +293,11 @@ def main(args):
                     train_dataset, batch_size=batch_size, shuffle=True
                 )
 
-            loss = train_epoch(model, train_loader, optimizer, criterion, device)
+            train_epoch(model, train_loader, optimizer, criterion, device, loggers)
             scheduler.step()
 
             if epoch % train_log_freq == 0:
                 loggers.add_scalar("train/epoch", epoch)
-                loggers.add_scalar("train/loss", loss.item())
                 loggers.add_scalar("train/lr", optimizer.param_groups[0]["lr"])
                 loggers.add_scalar("train/batch_size", batch_size)
                 loggers.add_scalar("train/look_back", look_back)
@@ -269,10 +307,12 @@ def main(args):
 
             if epoch % val_log_freq == 0:
                 val_data = torch.tensor(val_data, dtype=torch.float32)
-                val_dataset = TimeSeriesSliceDataset(val_data, look_back, pred_horizon)
-                val_stock_price = df.loc[val_idx, "Stock Price"].to_numpy()
+                val_dataset = TimeSeriesSliceDataset(
+                    val_data, look_back, pred_horizon
+                )  # TODO: move this within val_forward_pass so we can run next-day predictions
+                val_stock_price = df.iloc[val_idx]["Stock Price"].to_numpy()
 
-                accuracies, losses = val_forward_pass(
+                val_forward_pass(
                     model,
                     val_dataset,
                     criterion,
@@ -284,10 +324,6 @@ def main(args):
                 )
                 loggers.push_scalars(step=epoch)
                 loggers.push_plotly(step=epoch)
-                print(
-                    f"\nAccuracies: {''.join(['+' if a > 0.5 else '-' for a in accuracies])}"
-                )
-                print(f"Losses: {[round(l, 4) for l in losses]}")
 
             pbar.update(1)
 
@@ -301,5 +337,4 @@ if __name__ == "__main__":
 
     main(args)
 
-    # TODO: add logging of model weights and gradients
     # TODO: save state dict to disk

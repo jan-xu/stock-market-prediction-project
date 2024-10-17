@@ -206,26 +206,15 @@ def main(args):
             date_col="Date",
             volume_col="Volume",
             add_ma=True,
-            # run_folder=run_folder,
+        )
+        for plot_name, fig in logged_plots.items():
+            loggers.add_plotly(f"eda_plot/{plot_name}", fig)
+        loggers.push_plotly(step=0)
+        print(
+            f"Logged plots in {run_folder}/figures: \n-> {'\n-> '.join(logged_plots.keys())}\n"
         )
         prompt_answer = UserPrompt.prompt_continue()
         prompt_answer()
-        if args.wandb:
-            # TODO: See if we can simplify this
-            FIGURE_LIST = [
-                wandb.Html(str(html_plot))
-                for html_plot in logged_plots
-                if html_plot.endswith(".html")
-            ]
-            FIGURE_COLUMNS = [
-                Path(html_plot).stem
-                for html_plot in logged_plots
-                if html_plot.endswith(".html")
-            ]
-            FIGURE_TABLE = wandb.Table(columns=FIGURE_COLUMNS)
-            FIGURE_TABLE.add_data(*FIGURE_LIST)
-            wandb.log({"data_analysis": FIGURE_TABLE}, step=0)
-            loggers.add_plotly()
 
     # Feature engineering
     df["Return"] = get_relative_change(df["Adj Close"])
@@ -328,7 +317,6 @@ def main(args):
                 )  # TODO: move this within val_forward_pass so we can run next-day predictions
                 val_stock_price = df.iloc[val_idx]["Adj Close"].to_numpy()
 
-                # accuracies, losses = val_forward_pass(
                 val_forward_pass(
                     model,
                     val_dataset,

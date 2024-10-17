@@ -129,6 +129,7 @@ class EDA:
         plot_ma: bool = False,
         save_fig_name: Union[str, None] = None,
         save_fmts: List[str] = ["html", "png"],
+        show_fig: bool = False,
     ) -> None:
         """
         Plots the stock price data using Plotly.
@@ -192,15 +193,19 @@ class EDA:
                     )
                 )
 
+        if show_fig:
+            fig.show()
+
         if save_fig_name is not None:
             self._save_figures(fig, save_fig_name, save_fmts=save_fmts)
-        else:
-            fig.show()
+
+        return fig
 
     def plot_volume(
         self,
         save_fig_name: Union[str, None] = None,
         save_fmts: List[str] = ["html", "png"],
+        show_fig: bool = False,
     ) -> None:
         """
         Plots the stock volume data using Plotly.
@@ -249,10 +254,13 @@ class EDA:
         if self.date_col:
             fig.update_xaxes(tickformat="%Y-%m-%d")  # Format x-axis for date
 
+        if show_fig:
+            fig.show()
+
         if save_fig_name is not None:
             self._save_figures(fig, save_fig_name, save_fmts=save_fmts)
-        else:
-            fig.show()
+
+        return fig
 
     def plot_return(
         self,
@@ -260,6 +268,7 @@ class EDA:
         hist_bins: int = 50,
         save_fig_name: Union[str, None] = None,
         save_fmts: List[str] = ["png", "html"],
+        show_fig: bool = False,
     ) -> None:
         """
         Plots the daily stock price returns using Plotly.
@@ -426,16 +435,20 @@ class EDA:
             showlegend=True,
         )
 
+        if show_fig:
+            fig.show()
+
         if save_fig_name is not None:
             self._save_figures(fig, save_fig_name, save_fmts=save_fmts)
-        else:
-            fig.show()
+
+        return fig
 
     def stl_decomposition(
         self,
         freq: int = 252,
         save_fig_name: Union[str, None] = None,
         save_fmts: List[str] = ["html", "png"],
+        show_fig: bool = False,
     ) -> None:
         """
         Decomposes the stock price data into trend, seasonal, and residual components using STL decomposition.
@@ -522,10 +535,13 @@ class EDA:
         if self.date_col:
             fig.update_xaxes(tickformat="%Y-%m-%d")  # Format x-axis for date
 
+        if show_fig:
+            fig.show()
+
         if save_fig_name is not None:
             self._save_figures(fig, save_fig_name, save_fmts=save_fmts)
-        else:
-            fig.show()
+
+        return fig
 
 
 if __name__ == "__main__":
@@ -550,15 +566,17 @@ if __name__ == "__main__":
     eda = EDA(data=df, label="SYN_DATA", value_col="Stock Price")
     eda.add_moving_average(window=[7, 15, 30], column=eda.data[eda.value_col])
     eda.add_moving_average(window=[7, 15, 30], column=eda.data[eda.return_col])
-    eda.plot_price(plot_ma=True)
-    eda.plot_return(plot_ma=True)
+    price_fig = eda.plot_price(plot_ma=True, show_fig=True)
+    return_fig = eda.plot_return(plot_ma=True, show_fig=True)
     print("Summary of synthetic data:\n")
     print(eda.get_summary(), "\n")
     print(f"Index range: {eda.get_index_range()}\n")
 
     # Import real data
     label = "MSFT"
-    real_data = pd.read_csv(PROJECT_PATH / "data" / "stock_data" / f"{label}.csv")
+    real_data = pd.read_csv(
+        PROJECT_PATH / "data" / "database" / "stock_data" / f"{label}.csv"
+    )
     eda_real = EDA(
         data=real_data,
         label=label,
@@ -572,10 +590,10 @@ if __name__ == "__main__":
     eda_real.add_moving_average(
         window=[7, 15, 30], column=eda_real.data[eda_real.return_col]
     )
-    eda_real.plot_price(plot_ma=True)
-    eda_real.plot_volume()
-    eda_real.plot_return(plot_ma=True)
-    eda_real.stl_decomposition()
+    real_price_fig = eda_real.plot_price(plot_ma=True, show_fig=True)
+    real_volume_fig = eda_real.plot_volume(show_fig=True)
+    real_return_fig = eda_real.plot_return(plot_ma=True, show_fig=True)
+    real_stl_fig = eda_real.stl_decomposition(show_fig=True)
     print(f"Summary of {label} data:\n")
     print(eda_real.get_summary(), "\n")
     print(f"Date range: {eda_real.get_date_range()}\n")

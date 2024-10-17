@@ -16,8 +16,6 @@ def eda_plots(
     date_col=None,
     volume_col=None,
     add_ma=False,
-    save_folder=None,
-    run_folder=None,
 ):
     """
     Return plots from exploratory data analysis on the given time-series data.
@@ -36,25 +34,7 @@ def eda_plots(
         The name of the column containing the volume of the time-series data (usually "Volume").
     add_ma : bool, optional
         Whether to add moving averages to the plots. Default: False.
-    save_folder : str, optional
-        The folder to save plots in. If both `save_folder` and `run_folder` are None,
-        the plots will only be shown, not saved. Default: None.
-    run_folder : str, optional
-        The experiment folder (with defined folder structure) to save plots in. If both
-        `save_folder` and `run_folder` are None, the plots will only be shown, not saved.
-        Default: None.
     """
-
-    if save_folder is not None and run_folder is not None:
-        raise ValueError(
-            "Only one of `save_folder` and `run_folder` should be provided."
-        )
-    else:
-        if save_folder is not None:
-            Path(save_folder).mkdir(parents=True, exist_ok=True)
-        elif run_folder is not None:
-            Path(f"{run_folder}/figures/png").mkdir(parents=True, exist_ok=True)
-            Path(f"{run_folder}/figures/html").mkdir(parents=True, exist_ok=True)
 
     eda = EDA(
         data=df,
@@ -67,83 +47,21 @@ def eda_plots(
         eda.add_moving_average(window=[7, 15, 30], column=eda.data[eda.value_col])
         eda.add_moving_average(window=[7, 15, 30], column=eda.data[eda.return_col])
 
-    logged_plots = []
+    logged_plots = {}
 
-    def _save_fig_name(fig_type, fmt, add_suffix=False):
-        if save_folder is not None:
-            return f"{save_folder}/{eda.label}_{fig_type}" + (
-                f".{fmt}" if add_suffix else ""
-            )
-        elif run_folder is not None:
-            return f"{run_folder}/figures/{fmt}/{eda.label}_{fig_type}" + (
-                f".{fmt}" if add_suffix else ""
-            )
-        return None
+    price_fig = eda.plot_price(plot_ma=add_ma)
+    return_fig = eda.plot_return(plot_ma=add_ma)
 
-    eda.plot_price(
-        plot_ma=add_ma,
-        save_fig_name=_save_fig_name("price_plot", "png"),
-        save_fmts=["png"],
-    )
-    eda.plot_price(
-        plot_ma=add_ma,
-        save_fig_name=_save_fig_name("price_plot", "html"),
-        save_fmts=["html"],
-    )
-    eda.plot_return(
-        plot_ma=add_ma,
-        save_fig_name=_save_fig_name("return_plot", "png"),
-        save_fmts=["png"],
-    )
-    eda.plot_return(
-        plot_ma=add_ma,
-        save_fig_name=_save_fig_name("return_plot", "html"),
-        save_fmts=["html"],
-    )
-
-    if save_folder is not None or run_folder is not None:
-        logged_plots.extend(
-            [
-                _save_fig_name("price_plot", "png", add_suffix=True),
-                _save_fig_name("price_plot", "html", add_suffix=True),
-                _save_fig_name("return_plot", "png", add_suffix=True),
-                _save_fig_name("return_plot", "html", add_suffix=True),
-            ]
-        )
+    logged_plots["price_plot"] = price_fig
+    logged_plots["return_plot"] = return_fig
 
     if eda.volume_col is not None:
-        eda.plot_volume(
-            save_fig_name=_save_fig_name("volume_plot", "png"), save_fmts=["png"]
-        )
-        eda.plot_volume(
-            save_fig_name=_save_fig_name("volume_plot", "html"), save_fmts=["html"]
-        )
-        if save_folder is not None or run_folder is not None:
-            logged_plots.extend(
-                [
-                    _save_fig_name("volume_plot", "png", add_suffix=True),
-                    _save_fig_name("volume_plot", "html", add_suffix=True),
-                ]
-            )
+        volume_fig = eda.plot_volume()
+        logged_plots["volume_plot"] = volume_fig
 
     if eda.date_col is not None:
-        eda.stl_decomposition(
-            save_fig_name=_save_fig_name("stl_decomposition", "png"), save_fmts=["png"]
-        )
-        eda.stl_decomposition(
-            save_fig_name=_save_fig_name("stl_decomposition", "html"),
-            save_fmts=["html"],
-        )
-        if save_folder is not None or run_folder is not None:
-            logged_plots.extend(
-                [
-                    _save_fig_name("stl_decomposition", "png", add_suffix=True),
-                    _save_fig_name("stl_decomposition", "html", add_suffix=True),
-                ]
-            )
-
-    if save_folder is not None or run_folder is not None:
-        print(f"Logged plots: \n-> {'\n-> '.join(logged_plots)}\n")
+        stl_fig = eda.stl_decomposition()
+        logged_plots["stl_decomposition"] = stl_fig
 
     print("Summary of synthetic data:")
     print(eda.get_summary(), "\n")
