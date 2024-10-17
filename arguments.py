@@ -5,6 +5,7 @@ from warnings import warn
 import torch
 
 DEFAULT_ARGS = {
+    "project": "stock-prediction-playground",
     "architecture": "CNN-LSTM",
     "ticker": "AAPL",
     "epochs": 1000,
@@ -30,7 +31,7 @@ def parse_args():
         "-p",
         "--project",
         type=str,
-        default="stock-prediction-playground",
+        default=DEFAULT_ARGS["project"],
         help="Wandb project name",
     )
     parser.add_argument(
@@ -72,7 +73,7 @@ def parse_args():
     )
     parser.add_argument(
         "-b",
-        "--batch_size",
+        "--batch-size",
         type=int,
         default=DEFAULT_ARGS["batch_size"],
         help="Batch size",
@@ -141,15 +142,26 @@ def parse_args():
     parser.add_argument(
         "--ignore-timestamp", action="store_true", help="Ignore timestamp in run name"
     )
+    parser.add_argument(
+        "--TOY", action="store_true", help="Use synthetic toy dataset for testing"
+    )
 
     args = parser.parse_args()
+
+    if args.TOY:
+        args.ticker = "TOY"
+        print(f"================================================")
+        print(f"TOY RUN: Using synthetic toy dataset for testing")
+        print(f"================================================")
 
     time_stamp_suffix = f"--{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
     if args.name is not None:
         args.name = args.name + ("" if args.ignore_timestamp else time_stamp_suffix)
     else:
-        print(f"Run name not provided. Using default: RUN{time_stamp_suffix}")
-        args.name = f"RUN{time_stamp_suffix}"
+        print(
+            f"Run name not provided. Using default: {'TOY-' if args.TOY else ''}RUN{time_stamp_suffix}"
+        )
+        args.name = f"{'TOY-' if args.TOY else ''}RUN{time_stamp_suffix}"
 
     if args.device == "cuda":
         if not torch.cuda.is_available():

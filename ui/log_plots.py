@@ -16,6 +16,7 @@ def eda_plots(
     date_col=None,
     volume_col=None,
     add_ma=False,
+    show_fig=False,
 ):
     """
     Return plots from exploratory data analysis on the given time-series data.
@@ -49,21 +50,21 @@ def eda_plots(
 
     logged_plots = {}
 
-    price_fig = eda.plot_price(plot_ma=add_ma)
-    return_fig = eda.plot_return(plot_ma=add_ma)
+    price_fig = eda.plot_price(plot_ma=add_ma, show_fig=show_fig)
+    return_fig = eda.plot_return(plot_ma=add_ma, show_fig=show_fig)
 
     logged_plots["price_plot"] = price_fig
     logged_plots["return_plot"] = return_fig
 
     if eda.volume_col is not None:
-        volume_fig = eda.plot_volume()
+        volume_fig = eda.plot_volume(show_fig=show_fig)
         logged_plots["volume_plot"] = volume_fig
 
     if eda.date_col is not None:
-        stl_fig = eda.stl_decomposition()
+        stl_fig = eda.stl_decomposition(show_fig=show_fig)
         logged_plots["stl_decomposition"] = stl_fig
 
-    print("Summary of synthetic data:")
+    print(f"Summary of {label} stock price data:")
     print(eda.get_summary(), "\n")
 
     if eda.date_col is None:

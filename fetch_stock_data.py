@@ -1,7 +1,6 @@
 import argparse
 from datetime import datetime
 
-import pandas as pd
 import yfinance as yf
 
 from data.database import DATABASE_PATH, StockDatabase
@@ -78,11 +77,12 @@ if __name__ == "__main__":
             date_col="Date",
             volume_col="Volume",
             add_ma=True,
+            show_fig=args.plot,
         )
-
-    # Calculate basic statistics
-    print("Basic Statistics:\n")
-    print(stock_data.describe(), "\n")
+    else:
+        # Calculate statistics of fetched data
+        print(f"Basic statistics of {ticker} data:\n")
+        print(stock_data.describe(), "\n")
 
     # Save the data to the SQLite database
     if args.dbsave:

@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -10,7 +8,6 @@ from tqdm import tqdm
 import wandb
 from arguments import parse_args
 from config import create_run_folder, stock_mapping, wandb_config
-from data.database import DATABASE_PATH, StockDatabase
 from data.dataset import (
     TimeSeriesSliceDataset,
     auto_time_series_cross_validation,
@@ -170,10 +167,7 @@ def val_forward_pass(
 
                 prev_stock_price = val_stock_price[val_args.look_back - 1 + i]
                 real_stock_price = val_stock_price[
-                    val_args.look_back
-                    + i : val_args.look_back
-                    + i
-                    + val_args.pred_horizon
+                    val_args.look_back + i : val_args.look_back + i + 1
                 ]
                 real_stock_price = (
                     torch.tensor(real_stock_price, device=device)
@@ -187,13 +181,11 @@ def val_forward_pass(
                 next_day_stock_price_predictions.append(pred_stock_price)
 
                 rmse = torch.sqrt(criterion(pred_stock_price, real_stock_price))
-                mae = torch.mean(torch.abs(pred_stock_price - real_stock_price))
                 mape = torch.mean(
                     torch.abs(pred_stock_price - real_stock_price) / real_stock_price
                 )
 
                 loggers.add_scalar("val_next_day/stock_price_rmse", rmse.item())
-                loggers.add_scalar("val_next_day/stock_price_mae", mae.item())
                 loggers.add_scalar("val_next_day/stock_price_mape", mape.item() * 100)
 
         loggers.log_apply_scalars(
@@ -212,9 +204,6 @@ def val_forward_pass(
         )
         loggers.log_apply_scalars(
             "val_next_day/stock_price_rmse", lambda x: x, "val/stock_price_rmse"
-        )
-        loggers.log_apply_scalars(
-            "val_next_day/stock_price_mae", lambda x: x, "val/stock_price_mae"
         )
         loggers.log_apply_scalars(
             "val_next_day/stock_price_mape", lambda x: x, "val/stock_price_mape"
@@ -287,34 +276,44 @@ def main(args):
     # DATA INITIALISATION #
     #######################
 
-    database = StockDatabase(DATABASE_PATH)
-    metadata = database.get_metadata(
-        ticker_symbol=stock_mapping(ticker), printable=True
-    )
-    print(f"Metadata for ticker {ticker}:\n{metadata}")
+    if args.TOY:
+        from toy import SyntheticStockData
 
-    df = database.get_pandas_dataframe(ticker_symbol=stock_mapping(ticker))
+        syn_data_obj = SyntheticStockData()
+        syn_data_obj()
+        df = syn_data_obj.get_data_pandas()
+        value_col_name = "Stock Price"
+    else:
+        from data.database import DATABASE_PATH, StockDatabase
+
+        database = StockDatabase(DATABASE_PATH)
+        metadata = database.get_metadata(
+            ticker_symbol=stock_mapping(ticker), printable=True
+        )
+        print(f"Metadata for ticker {ticker}:\n{metadata}")
+        df = database.get_pandas_dataframe(ticker_symbol=stock_mapping(ticker))
+        value_col_name = "Adj Close"
 
     if args.eda:
         logged_plots = eda_plots(
             df,
             label=ticker,
-            value_col="Adj Close",
-            date_col="Date",
-            volume_col="Volume",
+            value_col=value_col_name,
+            date_col="Date" if not args.TOY else None,
+            volume_col="Volume" if not args.TOY else None,
             add_ma=True,
         )
         for plot_name, fig in logged_plots.items():
             loggers.add_plotly(f"eda_plot/{plot_name}", fig)
         loggers.push_plotly(step=0)
         print(
-            f"Logged plots in {run_folder}/figures: \n-> {'\n-> '.join(logged_plots.keys())}\n"
+            f"\nLogged plots in {run_folder}/figures: \n-> {'\n-> '.join(logged_plots.keys())}\n"
         )
         prompt_answer = UserPrompt.prompt_continue()
         prompt_answer()
 
     # Feature engineering
-    df["Return"] = get_relative_change(df["Adj Close"])
+    df["Return"] = get_relative_change(df[value_col_name])
 
     # Initialise data normalisation
     mean, std = df["Return"].mean(), df["Return"].std()
@@ -409,7 +408,7 @@ def main(args):
 
             if epoch % val_log_freq == 0:
                 val_data = torch.tensor(val_data, dtype=torch.float32)
-                val_stock_price = df.iloc[val_idx]["Adj Close"].to_numpy()
+                val_stock_price = df.iloc[val_idx][value_col_name].to_numpy()
 
                 val_forward_pass(
                     model,
