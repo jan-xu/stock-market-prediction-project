@@ -152,6 +152,7 @@ While the models and code work as expected, predictive power is still weak and s
 2. More human-friendly database API
 3. Evaluation on test sets
 4. Batch job script for large-scale studies
+5. More unit and integration tests
 
 **Performance improvements**
 1. Increase GPU utilisation (currently under 100%)
