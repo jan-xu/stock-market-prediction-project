@@ -5,9 +5,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-import wandb
 from arguments import parse_args
-from config import create_run_folder, stock_mapping, wandb_config
+from config import create_run_folder, stock_mapping
 from data.dataset import (
     TimeSeriesSliceDataset,
     auto_time_series_cross_validation,
@@ -257,6 +256,9 @@ def main(args):
 
     # Set wandb configuration
     if args.wandb:
+        import wandb
+        from config.wandb import wandb_config
+
         wandb_config(args)
 
     ticker = args.ticker

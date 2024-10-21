@@ -6,7 +6,15 @@ from warnings import warn
 import numpy as np
 from plotly.graph_objs import Figure
 
-import wandb
+try:
+    import wandb
+
+    WANDB_IMPORTED = True
+except ImportError:
+    warn(
+        "`wandb` is not installed. Wandb logging is not available, do not run with `--wandb` flag."
+    )
+    WANDB_IMPORTED = False
 
 
 class Logger(ABC):
@@ -26,7 +34,10 @@ class Logger(ABC):
 class WandbLogger(Logger):
 
     def __init__(self):
-        pass
+        if not WANDB_IMPORTED:
+            raise ImportError(
+                "`wandb` is not installed. Run 'pip install wandb' to install."
+            )
 
     def log_scalars(self, scalars: Dict[str, Any], step: int):
         wandb.log(scalars, step=step)
