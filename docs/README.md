@@ -7,8 +7,6 @@ This project is a mix of learning time-series ML, testing out my new GPU, and ma
 
 This README explains what I've done and how to use the components.
 
----
-
 ## Project Description
 
 In this project, I aim to predict future stock prices using historical data with an LSTM-based model.
@@ -66,8 +64,6 @@ Other metrics include:
 
 These are calculated for both single-day and multi-day predictions.
 
----
-
 ## Installation
 
 The project is in Python 3 and mainly uses PyTorch. Install dependencies with:
@@ -78,8 +74,6 @@ pip install -r requirements.txt
 ```
 
 For tracking experiments with [Weights & Biases](https://wandb.ai/), run `pip install wandb` and follow [setup instructions](https://docs.wandb.ai/quickstart/).
-
----
 
 ## Usage
 
@@ -135,8 +129,6 @@ _Daily return plot (with fitted distributions) example_
 _STL decomposition example_
 
 ![STL decomposition example](./stl.png)
-
----
 
 ## Future Work
 
