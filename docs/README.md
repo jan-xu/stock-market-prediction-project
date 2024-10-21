@@ -1,6 +1,7 @@
 # Stock Price Prediction with Machine Learning
 
 _Author: Jan Xu_
+
 _Release date (v1.0.0): 21-10-2024_
 
 This project is a mix of learning time-series ML, testing out my new GPU, and maybe making some money with minimal effort.
@@ -130,7 +131,7 @@ _STL decomposition example_
 
 ![STL decomposition example](./stl.png)
 
-## Future Work
+## Future Work (> v1.0.0)
 
 While the models and code work as expected, predictive power is still weak and suffers from overfitting. Potential improvements include:
 
