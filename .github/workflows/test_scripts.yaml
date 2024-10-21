@@ -1,0 +1,52 @@
+name: Test Main Scripts
+
+# When to run the workflow: on push (commit) or pull request to the main branch.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test_scripts:
+    runs-on: ubuntu-latest  # The environment to run tests (Ubuntu in this case).
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3  # This checks out your code so it can be tested.
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.12.3'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run train_model.py in TOY mode
+        run: python train_model.py --FAST-TOY
+
+      - name: Run fetch_stock_data.py
+        run: python fetch_stock_data.py -t AAPL --start 2021-01-01 --end 2021-12-31 --dbsave
+
+      - name: Run train_model.py (LSTM, ph=1)
+        run: python train_model.py -t AAPL -a LSTM -e 50 -tl 2 -vl 2
+
+      - name: Run train_model.py (LSTM, ph=2)
+        run: python train_model.py -t AAPL -a LSTM -e 50 -tl 2 -vl 2 -ph 2
+
+      - name: Run train_model.py (LSTM, ph=2, rph=True)
+        run: python train_model.py -t AAPL -a LSTM -e 50 -tl 2 -vl 2 -ph 2 -rph
+
+      - name: Run train_model.py (CNN-LSTM, ph=1)
+        run: python train_model.py -t AAPL -a CNN-LSTM -e 50 -tl 2 -vl 2
+
+      - name: Run train_model.py (CNN-LSTM, ph=2)
+        run: python train_model.py -t AAPL -a CNN-LSTM -e 50 -tl 2 -vl 2 -ph 2
+
+      - name: Run train_model.py (CNN-LSTM, ph=2, rph=True)
+        run: python train_model.py -t AAPL -a CNN-LSTM -e 50 -tl 2 -vl 2 -ph 2 -rph

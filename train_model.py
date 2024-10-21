@@ -281,7 +281,11 @@ def main(args):
     if args.TOY:
         from toy import SyntheticStockData
 
-        syn_data_obj = SyntheticStockData()
+        if args.FAST_TOY:
+            syn_data_obj = SyntheticStockData(T=20)
+        else:
+            syn_data_obj = SyntheticStockData()
+
         syn_data_obj()
         df = syn_data_obj.get_data_pandas()
         value_col_name = "Stock Price"

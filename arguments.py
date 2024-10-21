@@ -142,11 +142,25 @@ def parse_args():
     parser.add_argument(
         "--ignore-timestamp", action="store_true", help="Ignore timestamp in run name"
     )
+    parser.add_argument("--TOY", action="store_true", help="Use synthetic toy dataset")
     parser.add_argument(
-        "--TOY", action="store_true", help="Use synthetic toy dataset for testing"
+        "--FAST-TOY",
+        action="store_true",
+        help="Use small synthetic toy dataset for testing",
     )
 
     args = parser.parse_args()
+
+    if args.TOY or args.FAST_TOY:
+        args.ticker = "TOY"
+        print(f"================================================")
+        print(f"TOY RUN: Using synthetic toy dataset for testing")
+        print(f"================================================")
+
+        if args.FAST_TOY:
+            from config import overwrite_fast_toy_args
+
+            args = overwrite_fast_toy_args(args)
 
     if args.wandb:
         try:
@@ -155,12 +169,6 @@ def parse_args():
             raise ImportError(
                 "wandb is not installed. Run 'pip install wandb' to install."
             )
-
-    if args.TOY:
-        args.ticker = "TOY"
-        print(f"================================================")
-        print(f"TOY RUN: Using synthetic toy dataset for testing")
-        print(f"================================================")
 
     time_stamp_suffix = f"--{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
     if args.name is not None:
