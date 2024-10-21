@@ -148,6 +148,14 @@ def parse_args():
 
     args = parser.parse_args()
 
+    if args.wandb:
+        try:
+            import wandb
+        except ImportError:
+            raise ImportError(
+                "wandb is not installed. Run 'pip install wandb' to install."
+            )
+
     if args.TOY:
         args.ticker = "TOY"
         print(f"================================================")
