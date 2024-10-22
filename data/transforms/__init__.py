@@ -1,2 +1,2 @@
 from .data_transforms import apply_relative_change, get_relative_change
-from .normalisation import FeatureNormalisation
+from .standardisation import FeatureStandardiser

@@ -50,11 +50,11 @@ A better metric is what I called `gain_loss`, which is defined as:
 
 `loss_gain = loss / baseline_loss - 1`
 
-Here, `loss` is the MSE, and `baseline_loss` is `MSE(input, zeros_like(input))`. This "normalized error" shows when the model performs better than predicting a 0% daily return (no stock price change).
+Here, `loss` is the MSE, and `baseline_loss` is `MSE(input, zeros_like(input))`. This "normalised error" shows when the model performs better than predicting a 0% daily return (no stock price change).
 
 Here, `loss` is the MSE and `baseline_loss` is defined as `MSE(input, zeros_like(input))` which represents the "energy" of the original signal**. We can consider `loss_gain` to be a "normalised error" shifted by 1, indicating when the model predicts "better" (`loss_gain < 0`) than the best heuristic (predicting a 0% daily return, or no stock price change).
 
-****NOTE:** Since `input` is a normalised variable, in the limit of infinite data points `baseline_loss` should simply equate to 1. However, since we evaluate on a smaller validation set, the `baseline_loss` is not necessarily equal to 1, giving validity to our `loss_gain` metric.
+****NOTE:** Since `input` is a standardised variable, in the limit of infinite data points `baseline_loss` should simply equate to 1. However, since we evaluate on a smaller validation set, the `baseline_loss` is not necessarily equal to 1, giving validity to our `loss_gain` metric.
 
 Other metrics include:
 
