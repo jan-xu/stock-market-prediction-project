@@ -20,7 +20,7 @@ For a given ticker, the data includes daily stock prices (open, high, low, close
 
 `daily_return [%] = 100% * (today_stock_price - yesterday_stock_price) / yesterday_stock_price`
 
-We normalise the return data using historical mean and standard deviation for training.
+We standardise the return data using historical mean and standard deviation for training.
 
 **What models are we using?**
 

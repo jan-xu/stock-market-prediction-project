@@ -2,7 +2,7 @@ from numbers import Number
 from typing import List
 
 
-class FeatureNormalisation:
+class FeatureStandardiser:
 
     def __init__(self, mean, std):
         if not isinstance(mean, Number):
@@ -40,7 +40,7 @@ class FeatureNormalisation:
 
     def __str__(self):
         if self.dim == 1:
-            return f"FeatureNormalisation(mean={self.mean:.6f}, std={self.std:.6f})"
+            return f"FeatureStandardiser(mean={self.mean:.6f}, std={self.std:.6f})"
         else:
             printable_mean = [
                 round(m.item(), 3) if hasattr(m, "item") else round(m, 3)
@@ -50,7 +50,7 @@ class FeatureNormalisation:
                 round(s.item(), 3) if hasattr(s, "item") else round(s, 3)
                 for s in self.std
             ]
-            return f"FeatureNormalisation(mean={printable_mean}, std={printable_std})"
+            return f"FeatureStandardiser(mean={printable_mean}, std={printable_std})"
 
     def __repr__(self):
         return str(self)

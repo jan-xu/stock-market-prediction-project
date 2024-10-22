@@ -13,7 +13,7 @@ from data.dataset import (
     get_number_of_splits,
 )
 from data.transforms import (
-    FeatureNormalisation,
+    FeatureStandardiser,
     apply_relative_change,
     get_relative_change,
 )
@@ -72,7 +72,7 @@ def val_forward_pass(
     val_data,
     criterion,
     device,
-    normaliser,
+    standardiser,
     val_stock_price,
     loggers,
     val_args,
@@ -85,7 +85,7 @@ def val_forward_pass(
     val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
 
     # Get ground truth data for plotting
-    gt_return_data = normaliser.inverse(val_loader.dataset.data)
+    gt_return_data = standardiser.inverse(val_loader.dataset.data)
     gt_price_data = np.expand_dims(val_stock_price, -1)
 
     model.eval()
@@ -105,7 +105,7 @@ def val_forward_pass(
             loggers.add_scalar("val/baseline_loss", baseline_loss.item())
             loggers.add_scalar("val/accuracy_pct", accuracy.item() * 100)
 
-            pred_return = normaliser.inverse(pred)
+            pred_return = standardiser.inverse(pred)
             return_predictions.append(pred_return)
 
             prev_stock_price = val_stock_price[val_args.look_back - 1 + i]
@@ -161,7 +161,7 @@ def val_forward_pass(
                 loggers.add_scalar("val_next_day/baseline_loss", baseline_loss.item())
                 loggers.add_scalar("val_next_day/accuracy_pct", accuracy.item() * 100)
 
-                pred_return = normaliser.inverse(pred)
+                pred_return = standardiser.inverse(pred)
                 next_day_return_predictions.append(pred_return)
 
                 prev_stock_price = val_stock_price[val_args.look_back - 1 + i]
@@ -321,15 +321,15 @@ def main(args):
     # Feature engineering
     df["Return"] = get_relative_change(df[value_col_name])
 
-    # Initialise data normalisation
+    # Initialise data standardisation
     mean, std = df["Return"].mean(), df["Return"].std()
-    normaliser = FeatureNormalisation(mean, std)
+    standardiser = FeatureStandardiser(mean, std)
 
     # Specify features for the data and convert to NumPy array
     features = ["Return"]
     K = len(features)
     data_array = df[features].to_numpy()
-    data_array = normaliser.forward(data_array)  # Apply normalisation
+    data_array = standardiser.forward(data_array)  # Apply standardisation
 
     # Time-series cross-validation on dataset
     n_splits = get_number_of_splits(data_array, look_back, val_size=args.val_size)
@@ -421,7 +421,7 @@ def main(args):
                     val_data,
                     criterion,
                     device,
-                    normaliser,
+                    standardiser,
                     val_stock_price,
                     loggers,
                     val_args=args,

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from data.transforms import (
-    FeatureNormalisation,
+    FeatureStandardiser,
     apply_relative_change,
     get_relative_change,
 )
@@ -29,10 +29,10 @@ def test_apply_relative_change():
     assert np.allclose(apply_relative_change(data, start_value), expected_output)
 
 
-def test_feature_normalisation():
+def test_feature_standardiser():
     # 1-D data
 
-    f_norm = FeatureNormalisation(mean=0.5, std=0.25)
+    f_norm = FeatureStandardiser(mean=0.5, std=0.25)
 
     data = np.array([0.5, 0.75, 0.25, 1.0])
     data_normed = np.array([0.0, 1.0, -1.0, 2.0])
@@ -44,7 +44,7 @@ def test_feature_normalisation():
 
     # 1-D data, but parameters as a np.array
 
-    f_norm = FeatureNormalisation(mean=np.array(0.5), std=np.array(0.25))
+    f_norm = FeatureStandardiser(mean=np.array(0.5), std=np.array(0.25))
 
     data = np.array([0.5, 0.75, 0.25, 1.0])
     data_normed = np.array([0.0, 1.0, -1.0, 2.0])
@@ -56,7 +56,7 @@ def test_feature_normalisation():
 
     # 1-D data, but parameters as a list
 
-    f_norm = FeatureNormalisation(mean=[0.5], std=[0.25])
+    f_norm = FeatureStandardiser(mean=[0.5], std=[0.25])
 
     data = np.array([0.5, 0.75, 0.25, 1.0])
     data_normed = np.array([0.0, 1.0, -1.0, 2.0])
@@ -68,7 +68,7 @@ def test_feature_normalisation():
 
     # 2-D data
 
-    f_norm = FeatureNormalisation(mean=[0.5, 0.25], std=[0.25, 0.1])
+    f_norm = FeatureStandardiser(mean=[0.5, 0.25], std=[0.25, 0.1])
 
     data = np.array([[0.5, 0.25], [0.75, 0.35], [0.25, 0.15], [1.0, 0.45]])
     data_normed = np.array([[0.0, 0.0], [1.0, 1.0], [-1.0, -1.0], [2.0, 2.0]])
