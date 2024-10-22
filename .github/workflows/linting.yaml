@@ -1,0 +1,30 @@
+name: Code Linting
+
+# When to run the workflow: on push (commit) or pull request to the main branch.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest  # The environment to run tests (Ubuntu in this case).
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.12.3'
+
+      - name: Install dependencies
+        run: |
+          pip install pre-commit black isort
+
+      - name: Run pre-commit checks
+        run: pre-commit run
